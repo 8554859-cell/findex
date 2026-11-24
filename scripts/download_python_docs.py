@@ -1,4 +1,5 @@
 """Build a real corpus from the installed Python standard library docstrings."""
+
 import ast
 import sysconfig
 from pathlib import Path
@@ -18,7 +19,9 @@ def main():
         except (OSError, UnicodeError, SyntaxError):
             continue
         for i, node in enumerate(ast.walk(tree)):
-            if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            if not isinstance(
+                node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+            ):
                 continue
             doc = ast.get_docstring(node)
             if not doc:

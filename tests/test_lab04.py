@@ -12,11 +12,21 @@ from findex.search import combine, merge
 from findex.tokenize import tokenize
 
 
-@pytest.mark.parametrize(("text", "expected"), [
-    ("HELLO", ["hello"]), ("КИЇВ", ["київ"]), ("п’ять", ["п'ять"]),
-    ("a-b", ["a", "b"]), ("123", ["123"]), ("", []), ("!!!", []),
-    ("Straße", ["strasse"]), ("café", ["café"]), ("a_b", ["a", "b"]),
-])
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("HELLO", ["hello"]),
+        ("КИЇВ", ["київ"]),
+        ("п’ять", ["п'ять"]),
+        ("a-b", ["a", "b"]),
+        ("123", ["123"]),
+        ("", []),
+        ("!!!", []),
+        ("Straße", ["strasse"]),
+        ("café", ["café"]),
+        ("a_b", ["a", "b"]),
+    ],
+)
 def test_tokens(text, expected):
     assert list(tokenize(text)) == expected
 

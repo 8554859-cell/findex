@@ -14,19 +14,9 @@ jobs:
         with:
           python-version: '3.13'
       - run: pip install uv
-      - run: uv sync
-      - name: Export lock and formatted patch
-        if: always()
-        run: |
-          mkdir -p /tmp/lab04
+      - run: uv sync --locked
       - run: uv run ruff check .
-      - run: uv run ruff format --diff . || true
-      - run: uv run ruff format .
       - run: uv run ruff format --check .
-      - name: Show formatting patch and lock
-        run: |
-          git diff
-          cat uv.lock
       - run: uv run pyright
       - run: uv run pytest --cov=findex --cov-report=term-missing
       - run: uv build

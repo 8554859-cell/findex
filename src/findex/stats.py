@@ -1,4 +1,5 @@
 """Measure corpus statistics with eager and lazy pipelines."""
+
 import argparse
 import tracemalloc
 from collections import Counter
@@ -11,7 +12,9 @@ from findex.corpus import Document, iter_documents
 from findex.tokenize import tokenize
 
 
-def collect_stats(root: Path, limit: int | None = None, eager: bool = False) -> tuple[int, Counter[str]]:
+def collect_stats(
+    root: Path, limit: int | None = None, eager: bool = False
+) -> tuple[int, Counter[str]]:
     docs: Iterator[Document] = iter_documents(root)
     if limit is not None:
         docs = islice(docs, limit)
@@ -30,7 +33,9 @@ def collect_stats(root: Path, limit: int | None = None, eager: bool = False) -> 
     return n_docs, counts
 
 
-def measure(root: Path, limit: int | None = None, eager: bool = False) -> tuple[tuple[int, Counter[str]], float, int]:
+def measure(
+    root: Path, limit: int | None = None, eager: bool = False
+) -> tuple[tuple[int, Counter[str]], float, int]:
     tracemalloc.start()
     start = perf_counter()
     try:
@@ -62,7 +67,9 @@ def main() -> None:
     print(f"lazy: {n} documents | {peak / 1048576:.6f} MiB | {elapsed:.6f} s")
     if args.compare:
         eager, elapsed, peak = measure(args.root, args.limit, True)
-        print(f"eager: {eager[0]} documents | {peak / 1048576:.6f} MiB | {elapsed:.6f} s")
+        print(
+            f"eager: {eager[0]} documents | {peak / 1048576:.6f} MiB | {elapsed:.6f} s"
+        )
         if eager != lazy:
             raise RuntimeError("Statistics differ")
         print("Statistics match")

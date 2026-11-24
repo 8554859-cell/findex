@@ -1,4 +1,5 @@
 """Recursive descent Boolean and positional query language."""
+
 from __future__ import annotations
 
 import re
@@ -37,12 +38,18 @@ class Phrase(Node):
     def evaluate(self, index: Index) -> set[int]:
         if not self.words:
             return set()
-        maps = [{p.doc_id: set(p.positions) for p in index.postings.get(w, [])}
-                for w in self.words]
+        maps = [
+            {p.doc_id: set(p.positions) for p in index.postings.get(w, [])}
+            for w in self.words
+        ]
         candidates = set(maps[0]).intersection(*(set(m) for m in maps[1:]))
-        return {d for d in candidates if any(
-            all(pos+i in m[d] for i, m in enumerate(maps))
-            for pos in maps[0][d])}
+        return {
+            d
+            for d in candidates
+            if any(
+                all(pos + i in m[d] for i, m in enumerate(maps)) for pos in maps[0][d]
+            )
+        }
 
 
 @dataclass(frozen=True)

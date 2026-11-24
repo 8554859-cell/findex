@@ -1,4 +1,5 @@
 """Boolean search using sorted merges or sets."""
+
 import argparse
 import tracemalloc
 from pathlib import Path
@@ -94,7 +95,7 @@ def main() -> None:
             print(doc_id, index.doc_meta[doc_id].title, index.doc_meta[doc_id].path)
     _, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
-    print(f"Elapsed: {perf_counter()-start:.6f}s; peak: {peak/1048576:.3f} MiB")
+    print(f"Elapsed: {perf_counter() - start:.6f}s; peak: {peak / 1048576:.3f} MiB")
 
 
 if __name__ == "__main__":

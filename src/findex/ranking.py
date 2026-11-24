@@ -1,4 +1,5 @@
 """Ranking strategies, cached query evaluation and highlighted snippets."""
+
 import heapq
 import logging
 import math
@@ -22,7 +23,8 @@ class Scorer(Protocol):
 class TfIdf:
     def score(self, term: str, posting: Posting, index: Index) -> float:
         return (1 + math.log(posting.tf)) * (
-            1 + math.log((index.num_docs + 1) / (index.df(term) + 1)))
+            1 + math.log((index.num_docs + 1) / (index.df(term) + 1))
+        )
 
 
 @dataclass(frozen=True)
@@ -49,14 +51,18 @@ class SearchResult:
 def snippet(text: str, terms: set[str]) -> str:
     if not terms:
         return text[:160]
-    pattern = re.compile(r"\b(?:" + "|".join(re.escape(t) for t in sorted(terms)) + r")\b", re.IGNORECASE)
+    pattern = re.compile(
+        r"\b(?:" + "|".join(re.escape(t) for t in sorted(terms)) + r")\b", re.IGNORECASE
+    )
     matches = list(pattern.finditer(text))
     if not matches:
         return text[:160]
-    best = max(matches, key=lambda m: sum(abs(n.start()-m.start()) <= 80 for n in matches))
-    start = max(0, best.start()-80)
-    end = min(len(text), best.end()+80)
-    return pattern.sub(lambda m: "**"+m.group()+"**", text[start:end])
+    best = max(
+        matches, key=lambda m: sum(abs(n.start() - m.start()) <= 80 for n in matches)
+    )
+    start = max(0, best.start() - 80)
+    end = min(len(text), best.end() + 80)
+    return pattern.sub(lambda m: "**" + m.group() + "**", text[start:end])
 
 
 class Searcher:
@@ -71,7 +77,9 @@ class Searcher:
         self.ids = ids
 
     @timed
-    def search(self, query: str, scorer: Scorer | None = None, k: int = 10) -> list[SearchResult]:
+    def search(
+        self, query: str, scorer: Scorer | None = None, k: int = 10
+    ) -> list[SearchResult]:
         scorer = scorer if scorer is not None else BM25()
         before = self.ids.cache_info().hits
         ids = self.ids(query)
@@ -82,13 +90,22 @@ class Searcher:
             for posting in self.index.postings.get(term, []):
                 if posting.doc_id in scores:
                     scores[posting.doc_id] += scorer.score(term, posting, self.index)
-        best = heapq.nlargest(k, (SearchResult(s, d, self.index.doc_meta[d].title)
-                                  for d, s in scores.items()))
+        best = heapq.nlargest(
+            k,
+            (
+                SearchResult(s, d, self.index.doc_meta[d].title)
+                for d, s in scores.items()
+            ),
+        )
         if self.corpus is None:
             return best
         results: list[SearchResult] = []
         for result in best:
             path = self.corpus / self.index.doc_meta[result.doc_id].path
             text = path.read_text(encoding="utf-8")
-            results.append(SearchResult(result.score, result.doc_id, result.title, snippet(text, terms)))
+            results.append(
+                SearchResult(
+                    result.score, result.doc_id, result.title, snippet(text, terms)
+                )
+            )
         return results

@@ -1,4 +1,5 @@
 """Unicode-aware streaming tokenizer."""
+
 import re
 import unicodedata
 from collections.abc import Iterator

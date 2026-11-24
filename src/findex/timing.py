@@ -1,4 +1,5 @@
 """Timing decorator."""
+
 import logging
 from collections.abc import Callable
 from functools import wraps
@@ -15,4 +16,5 @@ def timed[**P, T](fn: Callable[P, T]) -> Callable[P, T]:
             return fn(*args, **kwargs)
         finally:
             logger.info("%s: %.3f ms", fn.__name__, (perf_counter() - start) * 1000)
+
     return wrapper

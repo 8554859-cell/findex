@@ -1,4 +1,5 @@
 """Build a streaming inverted index."""
+
 import argparse
 import tracemalloc
 from collections import Counter, defaultdict
@@ -32,7 +33,6 @@ class Index:
     postings: dict[str, list[Posting]]
     doc_lengths: dict[int, int]
     doc_meta: dict[int, DocMeta]
-
 
     def __len__(self) -> int:
         return len(self.postings)
@@ -101,7 +101,7 @@ def main() -> None:
     _, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
     print(f"Documents: {len(index.doc_meta)}; terms: {len(index.postings)}")
-    print(f"Elapsed: {perf_counter()-start:.6f}s; peak: {peak/1048576:.3f} MiB")
+    print(f"Elapsed: {perf_counter() - start:.6f}s; peak: {peak / 1048576:.3f} MiB")
 
 
 if __name__ == "__main__":

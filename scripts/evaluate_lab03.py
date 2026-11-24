@@ -1,4 +1,5 @@
 """Evaluate ranking on the real corpus and controlled corpus-derived probes."""
+
 import json
 from pathlib import Path
 
@@ -28,7 +29,8 @@ def main():
     rows = []
     for query, prefixes, concept in QUERIES:
         relevant = {
-            i for i, meta in index.doc_meta.items()
+            i
+            for i, meta in index.doc_meta.items()
             if meta.path.startswith(prefixes)
             and concept in (root / meta.path).read_text(encoding="utf-8").casefold()
         }
@@ -36,7 +38,9 @@ def main():
         for scorer in (TfIdf(), BM25()):
             results = engine.search(query, scorer, 5)
             row[type(scorer).__name__] = sum(r.doc_id in relevant for r in results) / 5
-            row[type(scorer).__name__ + "_paths"] = [index.doc_meta[r.doc_id].path for r in results]
+            row[type(scorer).__name__ + "_paths"] = [
+                index.doc_meta[r.doc_id].path for r in results
+            ]
         rows.append(row)
     terms = sorted(index.postings, key=lambda t: (index.df(t), t))
     rare = next(t for t in terms if index.df(t) == 1)
@@ -44,7 +48,9 @@ def main():
     bm = BM25()
     # Controlled counterfactual probes use actual corpus DF and mean length.
     length = max(20, round(index.avg_doc_length))
-    probe = Index(index.postings, {0: length, 1: length, 2: length * 10}, index.doc_meta)
+    probe = Index(
+        index.postings, {0: length, 1: length, 2: length * 10}, index.doc_meta
+    )
     probe.__dict__["avg_doc_length"] = index.avg_doc_length
     rare_score = bm.score(rare, Posting(0, 1), probe)
     common_score = bm.score(common, Posting(0, 1), probe)
@@ -55,11 +61,27 @@ def main():
     assert rare_score > common_score
     assert 0 < repeated20 - repeated19 < common_score * 0.1
     assert short > long
-    print("LAB03_RESULT " + json.dumps({"rows": rows, "rare": rare, "common": common,
-          "rare_score": rare_score, "common_score": common_score, "tf19": repeated19,
-          "tf20": repeated20, "short": short, "long": long, "length": length,
-          "docs": index.num_docs, "avgdl": index.avg_doc_length,
-          "cache_hits": engine.ids.cache_info().hits}, ensure_ascii=False))
+    print(
+        "LAB03_RESULT "
+        + json.dumps(
+            {
+                "rows": rows,
+                "rare": rare,
+                "common": common,
+                "rare_score": rare_score,
+                "common_score": common_score,
+                "tf19": repeated19,
+                "tf20": repeated20,
+                "short": short,
+                "long": long,
+                "length": length,
+                "docs": index.num_docs,
+                "avgdl": index.avg_doc_length,
+                "cache_hits": engine.ids.cache_info().hits,
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 if __name__ == "__main__":

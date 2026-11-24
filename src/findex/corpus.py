@@ -1,4 +1,5 @@
 """Read one text document at a time."""
+
 import logging
 from collections.abc import Iterator
 from dataclasses import dataclass

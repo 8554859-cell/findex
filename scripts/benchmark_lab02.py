@@ -1,4 +1,5 @@
 """Measure three postings layouts, persistence and Boolean engines."""
+
 import json
 import pickle
 import tempfile
@@ -72,7 +73,9 @@ def main():
                 start = perf_counter()
                 for _ in range(100):
                     combine(a, b, "AND", engine)
-                results["queries"].append([label, pair, engine, (perf_counter()-start)/100])
+                results["queries"].append(
+                    [label, pair, engine, (perf_counter() - start) / 100]
+                )
     print(json.dumps(results, ensure_ascii=False))
 
 

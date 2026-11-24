@@ -1,4 +1,5 @@
 """Installable command line interface."""
+
 import json
 import logging
 import pickle
@@ -23,14 +24,27 @@ ScorerName = Literal["bm25", "tfidf"]
 
 
 @app.callback()
-def configure(verbose: Annotated[int, typer.Option("--verbose", "-v", count=True)] = 0) -> None:
-    logging.basicConfig(level=logging.DEBUG if verbose >= 2 else logging.INFO if verbose else logging.WARNING,
-                        format="%(levelname)s: %(message)s", force=True)
+def configure(
+    verbose: Annotated[int, typer.Option("--verbose", "-v", count=True)] = 0,
+) -> None:
+    logging.basicConfig(
+        level=logging.DEBUG
+        if verbose >= 2
+        else logging.INFO
+        if verbose
+        else logging.WARNING,
+        format="%(levelname)s: %(message)s",
+        force=True,
+    )
 
 
 @app.command("index")
-def index_command(corpus: Path, out: Annotated[Path, typer.Option("--out")],
-                  positions: bool = False, limit: Annotated[int | None, typer.Option(min=0)] = None) -> None:
+def index_command(
+    corpus: Path,
+    out: Annotated[Path, typer.Option("--out")],
+    positions: bool = False,
+    limit: Annotated[int | None, typer.Option(min=0)] = None,
+) -> None:
     try:
         if not corpus.is_dir():
             raise ValueError("Corpus directory does not exist")
@@ -46,21 +60,30 @@ def index_command(corpus: Path, out: Annotated[Path, typer.Option("--out")],
 
 
 @app.command("search")
-def search_command(index: Path, query: str, k: Annotated[int, typer.Option(min=1)] = 10,
-                   scorer: str = "bm25", json_output: Annotated[bool, typer.Option("--json")] = False,
-                   corpus: Path | None = None) -> None:
+def search_command(
+    index: Path,
+    query: str,
+    k: Annotated[int, typer.Option(min=1)] = 10,
+    scorer: str = "bm25",
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    corpus: Path | None = None,
+) -> None:
     try:
         if scorer not in ("bm25", "tfidf"):
             raise ValueError("Scorer must be bm25 or tfidf")
         ix = load(index)
-        results = Searcher(ix, corpus).search(query, BM25() if scorer == "bm25" else TfIdf(), k)
+        results = Searcher(ix, corpus).search(
+            query, BM25() if scorer == "bm25" else TfIdf(), k
+        )
         if json_output:
             for result in results:
                 typer.echo(json.dumps(asdict(result), ensure_ascii=False))
             return
         table = Table("ID", "Score", "Title", "Snippet")
         for result in results:
-            table.add_row(str(result.doc_id), f"{result.score:.4f}", result.title, result.snippet)
+            table.add_row(
+                str(result.doc_id), f"{result.score:.4f}", result.title, result.snippet
+            )
         console.print(table)
     except (OSError, ValueError, EOFError, pickle.UnpicklingError) as exc:
         logger.error("%s", exc)
@@ -75,7 +98,11 @@ def stats_command(index: Path) -> None:
         table.add_row("Documents", str(ix.num_docs))
         table.add_row("Tokens", str(sum(ix.doc_lengths.values())))
         table.add_row("Vocabulary", str(len(ix)))
-        for term, postings in sorted(ix.postings.items(), key=lambda item: sum(p.tf for p in item[1]), reverse=True)[:50]:
+        for term, postings in sorted(
+            ix.postings.items(),
+            key=lambda item: sum(p.tf for p in item[1]),
+            reverse=True,
+        )[:50]:
             table.add_row(term, str(sum(p.tf for p in postings)))
         console.print(table)
     except (OSError, ValueError, EOFError, pickle.UnpicklingError) as exc:
