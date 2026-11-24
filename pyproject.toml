@@ -1,0 +1,13 @@
+[project]
+name = "findex"
+version = "0.1.0"
+description = "Streaming text corpus analysis"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.9"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

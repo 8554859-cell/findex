@@ -1,0 +1,1 @@
+"""Streaming search engine foundations."""
