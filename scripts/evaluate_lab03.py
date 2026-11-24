@@ -5,7 +5,6 @@ from pathlib import Path
 from findex.index import Index, Posting, build_index
 from findex.ranking import BM25, Searcher, TfIdf
 
-
 # Relevance is defined before ranking, by the source module and the concept.
 # These are assistant-defined judgments, not labels supplied by the student.
 QUERIES = [
