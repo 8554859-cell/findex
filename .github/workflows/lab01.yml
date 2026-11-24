@@ -1,4 +1,4 @@
-name: Lab 01 checks
+name: Lab checks
 on:
   push:
   workflow_dispatch:
@@ -17,4 +17,6 @@ jobs:
       - run: uv run ruff check .
       - run: uv run pytest -q
       - run: uv run python scripts/download_python_docs.py
-      - run: uv run python -m findex.stats data/python_docs --compare
+      - run: uv run python -m findex.index data/python_docs --out index.bin
+      - run: uv run python -m findex.search index.bin "python OR module"
+      - run: uv run python scripts/benchmark_lab02.py
