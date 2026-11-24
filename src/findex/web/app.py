@@ -1,6 +1,6 @@
 """FastAPI boundary for the immutable search index."""
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from time import monotonic, perf_counter
@@ -92,7 +92,7 @@ def execute_search(index: Index, settings: Settings, q: str, k: int, scorer: Sco
         total = len(searcher.ids(q))
         terms = positive_terms(parse(q))
         ranked = searcher.search(q, BM25() if scorer == "bm25" else TfIdf(), min(total, page * k))
-        results = []
+        results: list[Result] = []
         for result in ranked[(page - 1) * k:page * k]:
             doc = read_document(index, settings, result.doc_id)
             results.append(Result(doc_id=result.doc_id, title=result.title, score=result.score,
@@ -103,7 +103,7 @@ def execute_search(index: Index, settings: Settings, q: str, k: int, scorer: Sco
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     settings = Settings()
     app.state.settings = settings
     app.state.started = monotonic()
