@@ -53,8 +53,8 @@ jobs:
       - name: Docker smoke
         run: |
           docker build -t findex .
-          docker run -d --rm --name findex-ci -p 8001:8000 findex
-          trap 'docker stop findex-ci || true' EXIT
+          docker run -d --name findex-ci -p 8001:8000 findex
+          trap 'docker rm -f findex-ci || true' EXIT
           for i in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8001/health; then exit 0; fi
             sleep 1

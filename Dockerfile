@@ -5,7 +5,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 COPY src src
 COPY scripts scripts
-RUN uv sync --locked --no-dev && uv run --no-dev python scripts/download_python_docs.py && uv run --no-dev findex index data/python_docs --out data/index.json --positions
+RUN uv sync --locked --no-dev --no-editable && uv run --no-dev python scripts/download_python_docs.py && uv run --no-dev findex index data/python_docs --out data/index.json --positions
 FROM python:3.13-slim-bookworm
 WORKDIR /app
 RUN useradd --create-home --uid 10001 findex
