@@ -36,6 +36,7 @@ def retry_delay(value: str | None, attempt: int) -> float:
 
 async def fetch(client: httpx.AsyncClient, url: str, *, timeout: float = 10.0) -> FetchResult:
     start = perf_counter()
+    result = FetchResult(url, 0, b"", 0.0)
     for attempt in range(4):
         delay = retry_delay(None, attempt)
         try:
