@@ -130,7 +130,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 
 def create_app(mode: Literal["sync", "async"] | None = None) -> FastAPI:
-    service = FastAPI(title="Findex", version="0.7.0", lifespan=lifespan)
+    service = FastAPI(title="Findex", version="1.0.0", lifespan=lifespan)
     service.state.index = None
     service.state.settings = Settings()
     service.state.started = monotonic()

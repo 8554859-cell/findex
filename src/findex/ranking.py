@@ -85,27 +85,31 @@ class Searcher:
         ids = self.ids(query)
         logger.info("cache hit=%s", self.ids.cache_info().hits > before)
         terms = positive_terms(parse(query))
-        scores = dict.fromkeys(ids, 0.0)
-        for term in sorted(terms):
-            for posting in self.index.postings.get(term, []):
-                if posting.doc_id in scores:
-                    scores[posting.doc_id] += scorer.score(term, posting, self.index)
-        best = heapq.nlargest(
-            k,
-            (
-                SearchResult(s, d, self.index.doc_meta[d].title)
-                for d, s in scores.items()
-            ),
-        )
+        if isinstance(scorer, (BM25, TfIdf)):
+            from findex.vector import vector_rank
+
+            best = vector_rank(self.index, ids, terms, scorer, k)
+        else:
+            best = self.scalar_rank(ids, terms, scorer, k)
         if self.corpus is None:
             return best
         results: list[SearchResult] = []
         for result in best:
             path = self.corpus / self.index.doc_meta[result.doc_id].path
             text = path.read_text(encoding="utf-8")
-            results.append(
-                SearchResult(
-                    result.score, result.doc_id, result.title, snippet(text, terms)
-                )
-            )
+            results.append(SearchResult(result.score, result.doc_id, result.title, snippet(text, terms)))
         return results
+
+    def scalar_rank(self, ids: frozenset[int], terms: set[str], scorer: Scorer, k: int) -> list[SearchResult]:
+        scores = dict.fromkeys(ids, 0.0)
+        for term in sorted(terms):
+            for posting in self.index.postings.get(term, []):
+                if posting.doc_id in scores:
+                    scores[posting.doc_id] += scorer.score(term, posting, self.index)
+        return heapq.nlargest(
+            k,
+            (
+                SearchResult(s, d, self.index.doc_meta[d].title)
+                for d, s in scores.items()
+            ),
+        )

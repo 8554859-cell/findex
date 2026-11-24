@@ -5,36 +5,21 @@ on:
 permissions:
   contents: read
 jobs:
-  profile:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: lab-07
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: pip install uv py-spy scalene
-      - run: uv sync --locked
+      - run: pip install uv
+      - run: uv sync
+      - run: uv run ruff check --fix .
+      - run: uv run ruff format .
+      - run: git diff -- . ':!uv.lock'
+      - run: cat uv.lock
+      - run: uv run pyright
+      - run: uv run pytest --cov=findex --cov-report=term-missing
       - run: uv run python scripts/download_python_docs.py
-      - run: mkdir -p docs
-      - run: uv run python -m cProfile -o docs/index.prof -m findex.cli index data/python_docs --out data/index.json --positions
       - run: uv run findex index data/python_docs --out data/index.json --positions
-      - run: |
-          uv run python -c 'import cProfile; from findex.cli import app; import sys; sys.argv=["findex","index","data/python_docs","--out","data/index.json","--positions"]; cProfile.run("app()", "docs/index.prof")'
-          uv run python -c 'import cProfile; from findex.cli import app; import sys; sys.argv=["findex","search","data/index.json","python OR module OR class"]; cProfile.run("app()", "docs/search.prof")'
-          for name in index search; do
-            echo "LAB08_PROFILE $name"
-            uv run python -c "import pstats; pstats.Stats('docs/$name.prof').strip_dirs().sort_stats('cumulative').print_stats(30)"
-          done
-      - run: |
-          py-spy record -o docs/index.svg -- .venv/bin/findex index data/python_docs --out data/index.json --positions
-          py-spy record -o docs/search.svg -- .venv/bin/findex search data/index.json 'python OR module OR class'
-      - run: |
-          scalene --cpu --json --outfile docs/scalene-index.json -- .venv/bin/findex index data/python_docs --out data/index.json --positions
-          scalene --cpu --json --outfile docs/scalene-search.json -- .venv/bin/findex search data/index.json 'python OR module OR class'
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: lab08-baseline-profile
-          path: docs/
+      - run: uv run python scripts/benchmark_lab08.py

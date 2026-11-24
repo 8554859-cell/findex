@@ -11,7 +11,10 @@ from itertools import islice
 from multiprocessing import get_context
 from pathlib import Path
 from time import perf_counter
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from findex.vector import Arrays
 
 from findex.corpus import iter_documents
 from findex.timing import timed
@@ -36,6 +39,12 @@ class Index:
     postings: dict[str, list[Posting]]
     doc_lengths: dict[int, int]
     doc_meta: dict[int, DocMeta]
+
+    @cached_property
+    def arrays(self) -> Arrays:
+        from findex.vector import Arrays
+
+        return Arrays(self)
 
     def __len__(self) -> int:
         return len(self.postings)
