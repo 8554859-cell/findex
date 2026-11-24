@@ -45,9 +45,9 @@ async def run(seed, concurrency):
                             per_host=5, allowed_domains={"127.0.0.1"}, delay=0.005, stats=stats):
         pass
     wall = perf_counter() - start
-    return dict(concurrency=concurrency, pages=stats.pages, wall=wall,
-                pages_per_second=stats.pages / wall, errors=stats.errors,
-                rss_mib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
+    return {"concurrency": concurrency, "pages": stats.pages, "wall": wall,
+                "pages_per_second": stats.pages / wall, "errors": stats.errors,
+                "rss_mib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024}
 
 
 def main():
