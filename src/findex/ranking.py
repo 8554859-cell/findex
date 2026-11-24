@@ -45,7 +45,7 @@ class SearchResult:
 def snippet(text, terms):
     if not terms:
         return text[:160]
-    pattern = re.compile(r"\b(?:" + "|".join(re.escape(t) for t in sorted(terms)) + r")\b", re.I)
+    pattern = re.compile(r"\b(?:" + "|".join(re.escape(t) for t in sorted(terms)) + r")\b", re.IGNORECASE)
     matches = list(pattern.finditer(text))
     if not matches:
         return text[:160]
@@ -60,9 +60,11 @@ class Searcher:
         self.index = index
         self.corpus = corpus
 
-    @lru_cache(maxsize=256)
-    def ids(self, query):
-        return frozenset(parse(query).evaluate(self.index))
+        @lru_cache(maxsize=256)
+        def ids(query):
+            return frozenset(parse(query).evaluate(index))
+
+        self.ids = ids
 
     @timed
     def search(self, query, scorer=None, k=10):
