@@ -13,6 +13,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Literal
 
+from findex.corpus import iter_documents
 from findex.timing import timed
 from findex.tokenize import tokenize
 
@@ -112,6 +113,19 @@ def build_measured(
     workers: int = 1,
     executor: ExecutorName = "serial",
 ) -> tuple[Index, float]:
+    if root.is_file() and root.suffix == ".jsonl":
+        postings: defaultdict[str, list[Posting]] = defaultdict(list)
+        lengths: dict[int, int] = {}
+        meta: dict[int, DocMeta] = {}
+        for number, doc in enumerate(islice(iter_documents(root), limit)):
+            offsets: defaultdict[str, list[int]] = defaultdict(list)
+            for offset, token in enumerate(tokenize(doc.text)):
+                offsets[token].append(offset)
+            lengths[number] = sum(map(len, offsets.values()))
+            meta[number] = DocMeta(doc.doc_id, doc.doc_id)
+            for term, places in offsets.items():
+                postings[term].append(Posting(number, len(places), tuple(places) if positions else ()))
+        return Index(dict(postings), lengths, meta), 0.0
     if workers < 1:
         raise ValueError("workers must be positive")
     paths = list(islice((p for p in root.rglob("*.txt") if p.is_file()), limit))

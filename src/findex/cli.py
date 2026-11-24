@@ -1,17 +1,22 @@
 """Installable command line interface."""
 
+import asyncio
 import json
 import logging
 import pickle
 from dataclasses import asdict
 from pathlib import Path
+from time import monotonic
+from urllib.parse import urlsplit
 from typing import Annotated, Literal
 
 import typer
 from rich.console import Console
+from rich.live import Live
 from rich.progress import Progress
 from rich.table import Table
 
+from findex.crawler.crawl import CrawlStats, crawl
 from findex.index import ExecutorName, build_index
 from findex.ranking import BM25, Searcher, TfIdf
 from findex.store import load, save
@@ -48,7 +53,7 @@ def index_command(
     executor: ExecutorName = "serial",
 ) -> None:
     try:
-        if not corpus.is_dir():
+        if not corpus.is_dir() and not (corpus.is_file() and corpus.suffix == ".jsonl"):
             raise ValueError("Corpus directory does not exist")
         with Progress(console=err) as progress:
             task = progress.add_task("Building index", total=None)
@@ -110,3 +115,37 @@ def stats_command(index: Path) -> None:
     except (OSError, ValueError, EOFError, pickle.UnpicklingError) as exc:
         logger.error("%s", exc)
         raise typer.Exit(1) from None
+
+
+@app.command("crawl")
+def crawl_command(
+    seed_url: str,
+    max_pages: Annotated[int, typer.Option(min=1)] = 500,
+    concurrency: Annotated[int, typer.Option(min=1)] = 10,
+    per_host: Annotated[int, typer.Option(min=1)] = 2,
+    out: Path = Path("data/crawl.jsonl"),
+) -> None:
+    host = urlsplit(seed_url).hostname
+    if not host:
+        raise typer.BadParameter("Invalid seed URL")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    stats = CrawlStats()
+    start = monotonic()
+    handler = logging.FileHandler("crawl.log", encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    crawler_logger = logging.getLogger("findex.crawler")
+    crawler_logger.addHandler(handler)
+    crawler_logger.setLevel(logging.INFO)
+
+    async def run() -> None:
+        with out.open("w", encoding="utf-8") as stream, Live(console=err) as live:
+            async for page in crawl([seed_url], max_pages=max_pages, concurrency=concurrency,
+                                    per_host=per_host, allowed_domains={host}, stats=stats):
+                await asyncio.to_thread(stream.write, json.dumps(asdict(page), ensure_ascii=False) + "\n")
+                await asyncio.to_thread(stream.flush)
+                live.update(f"Pages {stats.pages} | {stats.pages / max(monotonic() - start, 0.001):.1f}/s | in-flight {stats.in_flight} | errors {stats.errors} | queue {stats.queue_depth}")
+    try:
+        asyncio.run(run(), debug=True)
+    finally:
+        crawler_logger.removeHandler(handler)
+        handler.close()
