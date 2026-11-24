@@ -61,3 +61,15 @@ jobs:
           done
           docker logs findex-ci
           exit 1
+      - name: Public Render benchmark
+        run: |
+          url=https://findex-9t0d.onrender.com
+          curl -fsS --retry 5 --retry-all-errors --max-time 120 "$url/health"
+          curl -fsS --max-time 120 "$url/search?q=python&k=2"
+          curl -fsS --max-time 120 "$url/" | grep -o 'FINDEX / 07'
+          /tmp/oha --no-tui -n 100 -c 20 --output-format json "$url/search?q=python%20OR%20module&k=10" | tee public-oha.json
+          python -c 'import json; d=json.load(open("public-oha.json")); assert d["summary"]["successRate"] == 1.0'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lab07-public-oha
+          path: public-oha.json
