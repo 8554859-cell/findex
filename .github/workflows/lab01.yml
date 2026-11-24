@@ -1,75 +1,40 @@
-name: Lab checks
+name: Lab 08 checks
 on:
   push:
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  check:
+  profile:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: lab-07
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: pip install uv
+      - run: pip install uv py-spy scalene
       - run: uv sync --locked
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run pyright
-      - run: uv run pytest --cov=findex --cov-report=term-missing
-      - run: uv build
-      - run: uv tool install dist/*.whl
-      - run: findex --help
-      - uses: actions/upload-artifact@v4
-        with:
-          name: findex-wheel
-          path: dist/*.whl
       - run: uv run python scripts/download_python_docs.py
+      - run: mkdir -p docs
+      - run: uv run python -m cProfile -o docs/index.prof -m findex.cli index data/python_docs --out data/index.json --positions
       - run: uv run findex index data/python_docs --out data/index.json --positions
-      - run: uv run python scripts/benchmark_lab07.py data/index.json data/python_docs
-      - name: Install oha
-        run: |
-          curl -fsSL https://github.com/hatoo/oha/releases/latest/download/oha-linux-amd64 -o /tmp/oha
-          chmod +x /tmp/oha
-      - name: Local HTTP benchmark
-        run: |
-          for config in async:1 sync:1 sync:4; do
-            mode=${config%:*}
-            workers=${config#*:}
-            SEARCH_MODE=$mode .venv/bin/findex serve --port 8000 --workers "$workers" > server.log 2>&1 &
-            pid=$!
-            for i in $(seq 1 60); do
-              if curl -fsS http://127.0.0.1:8000/health; then break; fi
-              sleep 1
-            done
-            echo "LAB07_CONFIG $config"
-            /tmp/oha --no-tui -n 300 -c 50 --output-format json 'http://127.0.0.1:8000/search?q=python%20OR%20module&k=10'
-            kill "$pid"
-            wait "$pid" || true
-            sleep 2
+      - run: |
+          uv run python -c 'import cProfile; from findex.cli import app; import sys; sys.argv=["findex","index","data/python_docs","--out","data/index.json","--positions"]; cProfile.run("app()", "docs/index.prof")'
+          uv run python -c 'import cProfile; from findex.cli import app; import sys; sys.argv=["findex","search","data/index.json","python OR module OR class"]; cProfile.run("app()", "docs/search.prof")'
+          for name in index search; do
+            echo "LAB08_PROFILE $name"
+            uv run python -c "import pstats; pstats.Stats('docs/$name.prof').strip_dirs().sort_stats('cumulative').print_stats(30)"
           done
-      - name: Docker smoke
-        run: |
-          docker build -t findex .
-          docker run -d --name findex-ci -p 8001:8000 findex
-          trap 'docker rm -f findex-ci || true' EXIT
-          for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:8001/health; then exit 0; fi
-            sleep 1
-          done
-          docker logs findex-ci
-          exit 1
-      - name: Public Render benchmark
-        run: |
-          url=https://findex-9t0d.onrender.com
-          curl -fsS --retry 5 --retry-all-errors --max-time 120 "$url/health"
-          curl -fsS --max-time 120 "$url/search?q=python&k=2"
-          curl -fsS --max-time 120 "$url/" | grep -o 'FINDEX / 07'
-          /tmp/oha --no-tui -n 100 -c 20 --output-format json "$url/search?q=python%20OR%20module&k=10" | tee public-oha.json
-          python -c 'import json; d=json.load(open("public-oha.json")); assert d["summary"]["successRate"] == 1.0'
+      - run: |
+          py-spy record -o docs/index.svg -- .venv/bin/findex index data/python_docs --out data/index.json --positions
+          py-spy record -o docs/search.svg -- .venv/bin/findex search data/index.json 'python OR module OR class'
+      - run: |
+          scalene --cpu --json --outfile docs/scalene-index.json -- .venv/bin/findex index data/python_docs --out data/index.json --positions
+          scalene --cpu --json --outfile docs/scalene-search.json -- .venv/bin/findex search data/index.json 'python OR module OR class'
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: lab07-public-oha
-          path: public-oha.json
+          name: lab08-baseline-profile
+          path: docs/
