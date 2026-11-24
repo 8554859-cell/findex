@@ -1,46 +1,30 @@
-# findex — Лабораторна робота №6
+# findex — Лабораторна робота №7
+
+**Публічна адреса:** ще не розгорнуто. Потрібен доступ до платформи хостингу.
 
 Студент: Аркан Арсеній Станіславович, Б-122-23-1-ТП. Навчальна реалізація за допомогою ШІ.
 
-[Методичка](https://github.com/rmalkevy/Programming-Practice-Projects/blob/main/courses/python/lab-06-asyncio-crawler.md)
-
-## Дозвіл
-Експеримент виконується лише на власному локальному HTTP-сервері 127.0.0.1, який запускає scripts/benchmark_lab06.py. Він явно дозволяє обхід у robots.txt. Зовнішні сайти не використовуються. User-Agent містить адресу репозиторію для зв'язку. CLI обмежує домен стартової адреси; користувач повинен мати дозвіл на її обхід.
+[Методичка](https://github.com/rmalkevy/Programming-Practice-Projects/blob/main/courses/python/lab-07-fastapi-web-search.md)
 
 ## Запуск
 ```sh
 uv sync
-uv run findex crawl http://127.0.0.1:8000/ --max-pages 200 --concurrency 20 --per-host 5 --out data/crawl.jsonl
-uv run findex index data/crawl.jsonl --out index.bin --positions
-uv run findex search index.bin "python"
-uv run python scripts/benchmark_lab06.py 1
-uv run python scripts/benchmark_lab06.py 5
-uv run python scripts/benchmark_lab06.py 20
+uv run python scripts/download_python_docs.py
+uv run findex index data/python_docs --out data/index.json --positions
+uv run findex serve --port 8000
 ```
-Перша команда crawl передбачає вже запущений дозволений локальний сайт; benchmark сам запускає сервер.
+Відкрити http://127.0.0.1:8000/ або /docs для OpenAPI.
 
-## Реалізація
-asyncio.timeout, обмежені повтори, Retry-After, кеш robots, черга, TaskGroup, глобальний і локальний семафори, пауза між URL, canonicalize та seen. Перенаправлення не виконуються автоматично, щоб не обходити allowlist та robots. Бюджет обмежує кількість спроб різних URL, тому помилки можуть зменшити кількість успішних сторінок. JSONL записується поступово; індексація виконується окремо після завершення обходу. Парсинг HTML і запис передано у to_thread.
+## API
+/search — q, k, scorer, page; /docs/{id}; /stats; /health (503 без індексу).
+Налаштування INDEX_PATH, CORPUS_PATH, SEARCH_MODE через environment або .env. Індекс завантажується один раз на процес у lifespan. Pydantic використовується на межі API; залежності підміняються у тестах.
 
-## Вимірювання
-[Фактичний запуск CI](https://github.com/8554859-cell/findex/actions/runs/45453280657): 43 тести, покриття 82%, Pyright strict 0 помилок. Linux, Python 3.13.18; окремий запуск на кожну конфігурацію. RSS включає локальний сервер, який працював у тому ж процесі. Кожен запуск використовує однакову структуру 200 сторінок, але окремий випадковий loopback-порт.
-
-| Concurrency | Pages | Wall (s) | Pages/s | Errors | Peak RSS (MiB) |
-|---:|---:|---:|---:|---:|---:|
-| 1 | 200 | 6.5692 | 30.44 | 0 | 41.13 |
-| 5 | 200 | 1.4462 | 138.30 | 0 | 37.35 |
-| 20 | 200 | 1.5597 | 128.23 | 0 | 37.50 |
-
- На власному сервері імітується затримка 25 мс та один 429 з Retry-After: 0. Обмеження на хост — 5, інтервал — 5 мс. На зовнішньому сайті потрібні консервативніші обмеження.
-
-## Пояснення
-Очікування сокета не займає ядро на весь час запиту: event loop відновлює корутину після готовності вводу-виводу. На відміну від CPU-індексації Lab 5, тут можна перекривати багато очікувань. Per-host обмежує навантаження незалежно від глобальної конкурентності. Індексація в корутині заблокувала б event loop; CPU роботу слід виконувати окремо або передавати процесу. Конкурентність 5 дала приблизно 4.54× прискорення проти 1, а 20 — 4.21×. 20 не перевершує 5 через per-host=5 і додаткові накладні витрати. Вимірювання не є прямим порівнянням з Lab 5, оскільки там інша CPU-задача. У кожному запуску оброблено один 429; остаточних помилок немає.
-
-Фрагмент фактичного журналу:
-```text
-INFO url=http://127.0.0.1:39657/1 status=429 bytes=5 elapsed=0.0309 attempt=1
-INFO url=http://127.0.0.1:39657/1 retry delay=0.000
-INFO url=http://127.0.0.1:39657/1 status=200 bytes=57 elapsed=0.0618 attempt=2
+## Docker та розгортання
+```sh
+docker build -t findex .
+docker run --rm -p 8000:8000 findex
 ```
+Render Blueprint: render.yaml, Docker, healthCheckPath /health. Обліковий запис хостингу та публічна адреса ще не підтверджені.
 
-Сирі результати: [lab06-results.json](lab06-results.json). Повні журнали: артефакт lab06-logs у GitHub Actions. Запуски asyncio debug=True завершилися успішно; це не доводить відсутності всіх можливих блокувань. JSONL індексується послідовно; паралельний режим Lab 5 збережено для текстового корпусу.
+## Експерименти
+Результати локальних тестів, oha та Docker ще очікують перевірки. CPU-пошук у async def може заблокувати event loop; sync def переносить його в thread pool, але GIL обмежує CPU-паралельність. Кілька воркерів — окремі процеси з власним індексом, що збільшує використання пам'яті.

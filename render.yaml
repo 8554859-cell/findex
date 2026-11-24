@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: findex
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: SEARCH_MODE
+        value: sync

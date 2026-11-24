@@ -14,7 +14,11 @@ jobs:
         with:
           python-version: '3.13'
       - run: pip install uv
-      - run: uv sync --locked
+      - run: uv sync
+      - run: uv run ruff check --fix .
+      - run: uv run ruff format .
+      - run: git diff -- . ':!uv.lock'
+      - run: cat uv.lock
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pyright
@@ -26,10 +30,38 @@ jobs:
         with:
           name: findex-wheel
           path: dist/*.whl
-      - run: uv run python scripts/benchmark_lab06.py 1
-      - run: uv run python scripts/benchmark_lab06.py 5
-      - run: uv run python scripts/benchmark_lab06.py 20
-      - uses: actions/upload-artifact@v4
-        with:
-          name: lab06-logs
-          path: crawl-*.log
+      - run: uv run python scripts/download_python_docs.py
+      - run: uv run findex index data/python_docs --out data/index.json --positions
+      - run: uv run python scripts/benchmark_lab07.py data/index.json data/python_docs
+      - name: Install oha
+        run: |
+          curl -fsSL https://github.com/hatoo/oha/releases/latest/download/oha-linux-amd64 -o /tmp/oha
+          chmod +x /tmp/oha
+      - name: Local HTTP benchmark
+        run: |
+          for config in async:1 sync:1 sync:4; do
+            mode=${config%:*}
+            workers=${config#*:}
+            SEARCH_MODE=$mode uv run findex serve --port 8000 --workers "$workers" > server.log 2>&1 &
+            pid=$!
+            for i in $(seq 1 60); do
+              if curl -fsS http://127.0.0.1:8000/health; then break; fi
+              sleep 1
+            done
+            echo "LAB07_CONFIG $config"
+            /tmp/oha --no-tui -n 300 -c 50 -j 'http://127.0.0.1:8000/search?q=python%20OR%20module&k=10'
+            kill "$pid"
+            wait "$pid" || true
+            sleep 2
+          done
+      - name: Docker smoke
+        run: |
+          docker build -t findex .
+          docker run -d --rm --name findex-ci -p 8001:8000 findex
+          trap 'docker stop findex-ci || true' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8001/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs findex-ci
+          exit 1

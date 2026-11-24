@@ -160,3 +160,14 @@ def crawl_command(
     finally:
         crawler_logger.removeHandler(handler)
         handler.close()
+
+
+@app.command("serve")
+def serve_command(
+    port: Annotated[int, typer.Option(min=1, max=65535)] = 8000,
+    workers: Annotated[int, typer.Option(min=1)] = 1,
+    host: str = "127.0.0.1",
+) -> None:
+    import uvicorn
+
+    uvicorn.run("findex.web.app:app", host=host, port=port, workers=workers)
