@@ -15,9 +15,6 @@ jobs:
           python-version: '3.13'
       - run: pip install uv
       - run: uv sync --locked
-      - run: uv run ruff check --fix .
-      - run: uv run ruff format .
-      - run: git diff
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pyright

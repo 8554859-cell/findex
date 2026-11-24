@@ -2,13 +2,13 @@
 
 import argparse
 import tracemalloc
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from multiprocessing import get_context
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import cached_property
 from itertools import islice
+from multiprocessing import get_context
 from pathlib import Path
 from time import perf_counter
 from typing import Literal
@@ -116,14 +116,18 @@ def build_measured(
         raise ValueError("workers must be positive")
     paths = list(islice((p for p in root.rglob("*.txt") if p.is_file()), limit))
     size = max(1, (len(paths) + workers - 1) // workers)
-    chunks = [(paths[i : i + size], root, i, positions) for i in range(0, len(paths), size)]
+    chunks = [
+        (paths[i : i + size], root, i, positions) for i in range(0, len(paths), size)
+    ]
     if executor == "serial":
         partials = [build_partial(paths, root, 0, positions)]
     elif executor in ("threads", "processes"):
         pool = (
             ThreadPoolExecutor(max_workers=workers)
             if executor == "threads"
-            else ProcessPoolExecutor(max_workers=workers, mp_context=get_context("spawn"))
+            else ProcessPoolExecutor(
+                max_workers=workers, mp_context=get_context("spawn")
+            )
         )
         with pool:
             futures = [pool.submit(build_partial, *chunk) for chunk in chunks]

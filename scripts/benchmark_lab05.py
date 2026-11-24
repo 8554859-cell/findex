@@ -1,4 +1,5 @@
 """Measure each repetition in an isolated interpreter (Linux)."""
+
 import argparse
 import json
 import os
@@ -38,19 +39,43 @@ def main():
         print(json.dumps(one(args.root, args.one[0], int(args.one[1]))))
         return
     gil = getattr(sys, "_is_gil_enabled", lambda: True)()
-    print("LAB05_MACHINE " + json.dumps({
-        "python": sys.version, "gil": gil, "cpu_count": os.cpu_count(),
-        "affinity": len(os.sched_getaffinity(0)), "platform": platform.platform(),
-        "cpu_model": next((line.split(":", 1)[1].strip() for line in
-            Path("/proc/cpuinfo").read_text().splitlines() if line.startswith("model name")), "unknown"),
-    }), flush=True)
-    for executor in (["threads"] if args.free else ["serial", "threads", "processes"]):
+    print(
+        "LAB05_MACHINE "
+        + json.dumps(
+            {
+                "python": sys.version,
+                "gil": gil,
+                "cpu_count": os.cpu_count(),
+                "affinity": len(os.sched_getaffinity(0)),
+                "platform": platform.platform(),
+                "cpu_model": next(
+                    (
+                        line.split(":", 1)[1].strip()
+                        for line in Path("/proc/cpuinfo").read_text().splitlines()
+                        if line.startswith("model name")
+                    ),
+                    "unknown",
+                ),
+            }
+        ),
+        flush=True,
+    )
+    for executor in ["threads"] if args.free else ["serial", "threads", "processes"]:
         for workers in sorted({1, 2, 4, 8, os.cpu_count() or 1}):
             samples = []
             for _ in range(3):
-                command = [sys.executable, __file__, str(args.root), "--one", executor, str(workers)]
+                command = [
+                    sys.executable,
+                    __file__,
+                    str(args.root),
+                    "--one",
+                    executor,
+                    str(workers),
+                ]
                 samples.append(json.loads(subprocess.check_output(command, text=True)))
-            row = {key: statistics.median(s[key] for s in samples) for key in samples[0]}
+            row = {
+                key: statistics.median(s[key] for s in samples) for key in samples[0]
+            }
             row.update(executor=executor, workers=workers, gil=gil, samples=samples)
             print("LAB05_ROW " + json.dumps(row), flush=True)
 

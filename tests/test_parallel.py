@@ -1,12 +1,12 @@
+from collections import Counter
 from pathlib import Path
 
 import pytest
 
-from findex.index import Index, Posting, DocMeta, build_index, build_partial, merge
-from findex.store import save
 from findex.corpus import iter_documents
+from findex.index import DocMeta, Index, Posting, build_index, build_partial, merge
+from findex.store import save
 from findex.tokenize import tokenize
-from collections import Counter
 
 
 def test_lab04_equivalence(corpus: Path):
