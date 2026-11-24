@@ -20,3 +20,5 @@ jobs:
       - run: uv run python -m findex.index data/python_docs --out index.bin
       - run: uv run python -m findex.search index.bin "python OR module"
       - run: uv run python scripts/benchmark_lab02.py
+      - run: uv run python -m findex.index data/python_docs --out positional.bin --positions
+      - run: uv run python -m findex.search positional.bin 'python OR "event loop"' --scorer bm25 --corpus data/python_docs

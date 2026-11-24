@@ -4,6 +4,7 @@ import tracemalloc
 from pathlib import Path
 from time import perf_counter
 
+from findex.ranking import BM25, Searcher, TfIdf
 from findex.store import load
 from findex.tokenize import tokenize
 
@@ -72,12 +73,20 @@ def main():
     parser.add_argument("index", type=Path)
     parser.add_argument("query")
     parser.add_argument("--engine", choices=["merge", "set"], default="merge")
+    parser.add_argument("--scorer", choices=["bm25", "tfidf"])
+    parser.add_argument("--corpus", type=Path)
+    parser.add_argument("--k", type=int, default=10)
     args = parser.parse_args()
     tracemalloc.start()
     start = perf_counter()
     index = load(args.index)
-    for doc_id in search(index, args.query, args.engine):
-        print(doc_id, index.doc_meta[doc_id].title, index.doc_meta[doc_id].path)
+    if args.scorer:
+        scorer = BM25() if args.scorer == "bm25" else TfIdf()
+        for result in Searcher(index, args.corpus).search(args.query, scorer, args.k):
+            print(result)
+    else:
+        for doc_id in search(index, args.query, args.engine):
+            print(doc_id, index.doc_meta[doc_id].title, index.doc_meta[doc_id].path)
     _, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
     print(f"Elapsed: {perf_counter()-start:.6f}s; peak: {peak/1048576:.3f} MiB")

@@ -1,58 +1,29 @@
-# findex — Лабораторна робота №2
+# findex — Лабораторна робота №3
 
 Студент: Аркан Арсеній Станіславович, Б-122-23-1-ТП.
+Навчальна реалізація за допомогою ШІ. [Методичка](https://github.com/rmalkevy/Programming-Practice-Projects/blob/main/courses/python/lab-03-the-object-model-and-ranking.md).
 
-Навчальна реалізація за допомогою ШІ. [Методичка](https://github.com/rmalkevy/Programming-Practice-Projects/blob/main/courses/python/lab-02-data-structures-and-the-inverted-index.md).
-[Лабораторна №1](https://github.com/8554859-cell/findex/tree/lab-01).
+Попередні версії: [Lab 01](../lab-01), [Lab 02](../lab-02).
 
-## Мета та корпус
-Інвертований індекс документів зі стандартної бібліотеки Python (той самий корпус, що у Lab 01).
+## Мета
+Модель об'єктів Python, протоколи, ранжування, рекурсивний парсер, декоратори.
 
 ## Запуск
 ```sh
 uv sync
 uv run python scripts/download_python_docs.py
-uv run python -m findex.index data/python_docs --out index.bin
-uv run python -m findex.search index.bin "python OR module" --engine merge
-uv run python -m findex.index data/python_docs --out index.json
-uv run python -m findex.search index.json "python NOT class" --engine set
+uv run python -m findex.index data/python_docs --out positional.bin --positions
+uv run python -m findex.search positional.bin 'python AND (async OR await) NOT java' --scorer bm25 --corpus data/python_docs
+uv run python -m findex.search positional.bin '"event loop"' --scorer tfidf --corpus data/python_docs
 uv run pytest -q
 uv run ruff check .
-uv run python scripts/benchmark_lab02.py
 ```
 
-## M1–M4
-Індекс будується за один прохід; Counter рахує частоти поточного документа, defaultdict накопичує впорядковані постінги. Posting і DocMeta незмінні, зі slots. Зберігаються довжини документів. Позиції не реалізовані (опційна вимога).
-Пошук використовує двовказівникові AND/OR/NOT або множини; оператори обчислюються зліва направо, NOT доповнює наступний термін, пробіл означає AND.
-Збереження: pickle та JSON. Не відкривайте чужі pickle-файли — можливе виконання довільного коду.
-Бенчмарк порівнює plain dataclass, slots і array('I') на одному корпусі. Slots прибирає словник атрибутів; array зберігає числа без окремих об'єктів. Для форматів вимірюються розмір, час запису і читання; для merge/set — середній час AND за 100 повторів.
+## Реалізація
+Index реалізує спеціальні методи контейнера, cached_property для середньої довжини, df та контекстний менеджер open_index у store.py. Позиції токенів опційні; для фраз потрібно створювати індекс з --positions. Старі файли без позицій читаються.
+Scorer — структурний протокол; TF-IDF використовує логарифмічну TF, BM25 — насичення TF і нормалізацію довжини. heapq.nlargest обмежує результати до k.
+Парсер: NOT має найвищий пріоритет, AND (у тому числі неявний) — середній, OR — найнижчий. Вузли підтримують &, |, ~. Фраза перевіряє послідовні позиції.
+timed використовує wraps; Searcher.ids кешує результати запиту, а search друкує cache hit. Сніпет виділяє терміни зірочками навколо найбільш насиченого збігами фрагмента.
 
-## Результати
-Фактичний запуск GitHub Actions, 24.11.2026, Linux / Python 3.13: [журнал перевірки](https://github.com/8554859-cell/findex/actions/runs/45443721353). Корпус: 11 284 документаційні уривки; 12 345 термінів. Ruff: All checks passed; pytest: 11 passed.
-
-### Пам'ять і представлення постінгів
-
-| Представлення | Пікова пам'ять, MiB | Розмір pickle, байт | Час завантаження, с |
-|---|---:|---:|---:|
-| Plain dataclass | 23.581 | 4420165 | 0.162838 |
-| Slotted dataclass | 15.050 | 3524699 | 0.614188 |
-| array('I') | 4.596 | 2120131 | 0.006849 |
-
-Вимірюється побудова таблиці постінгів без метаданих, однаковий корпус для трьох варіантів. Масив споживає приблизно у 5,13 раза менше пікової пам'яті, ніж звичайні dataclass. Slots усуває окремий словник атрибутів. Масив зберігає пари чисел у компактному буфері.
-
-### Серіалізація повного індексу
-
-| Формат | Розмір, байт | Запис, с | Читання, с |
-|---|---:|---:|---:|
-| pickle | 2304222 | 0.118628 | 0.231010 |
-| JSON | 3354084 | 0.218042 | 0.356028 |
-
-### Boolean AND: середній час 100 повторів
-
-| Терміни | Merge, мкс | Set, мкс |
-|---|---:|---:|
-| Рідкісні: 00010203, 0003 | 0.307 | 0.859 |
-| Часті: a, the | 1314.831 | 967.402 |
-
-На коротких списках merge швидший, на довгих у цьому запуску виграв set завдяки реалізації операцій множин у C. Результати обох алгоритмів однакові. Побудова та запис індексу: 3.576 с, пік 47.989 MiB; завантаження та пошук: 0.857 с, пік 41.161 MiB. Це результати хмарного середовища, не особистого комп'ютера студента.
-Питання захисту: DEFENSE_LAB02.md.
+## Перевірка
+Автоматичні тести та Ruff запускаються у GitHub Actions. Три експерименти ранжування і таблиця precision@5 ще потребують підтверджених результатів; не позначено як завершені.

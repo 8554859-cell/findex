@@ -1,16 +1,18 @@
 """Persist indexes in pickle or JSON."""
 import json
 import pickle
+from contextlib import contextmanager
 from pathlib import Path
 
 from findex.index import DocMeta, Index, Posting
+from findex.timing import timed
 
 
 def save(index, path):
     path = Path(path)
     if path.suffix == ".json":
         data = {
-            "postings": {k: [[p.doc_id, p.tf] for p in v] for k, v in index.postings.items()},
+            "postings": {k: [[p.doc_id, p.tf, p.positions] for p in v] for k, v in index.postings.items()},
             "lengths": index.doc_lengths,
             "meta": {k: [v.path, v.title] for k, v in index.doc_meta.items()},
         }
@@ -18,13 +20,14 @@ def save(index, path):
     else:
         # Use primitive records so CLI execution as __main__ remains portable.
         data = (
-            {k: [(p.doc_id, p.tf) for p in v] for k, v in index.postings.items()},
+            {k: [(p.doc_id, p.tf, p.positions) for p in v] for k, v in index.postings.items()},
             index.doc_lengths,
             {k: (v.path, v.title) for k, v in index.doc_meta.items()},
         )
         path.write_bytes(pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL))
 
 
+@timed
 def load(path):
     path = Path(path)
     if path.suffix == ".json":
@@ -34,7 +37,17 @@ def load(path):
         # Never load an untrusted pickle: deserialization can execute arbitrary code.
         postings, lengths, meta = pickle.loads(path.read_bytes())
     return Index(
-        {k: [Posting(*p) for p in v] for k, v in postings.items()},
+        {k: [Posting(p[0], p[1], tuple(p[2]) if len(p) > 2 else ()) for p in v] for k, v in postings.items()},
         {int(k): v for k, v in lengths.items()},
         {int(k): DocMeta(*v) for k, v in meta.items()},
     )
+
+
+@contextmanager
+def open_index(path):
+    # load uses Path methods that close files before returning, even on errors.
+    index = load(path)
+    try:
+        yield index
+    finally:
+        del index
