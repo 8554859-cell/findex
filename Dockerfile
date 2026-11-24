@@ -10,6 +10,8 @@ FROM python:3.13-slim-bookworm
 WORKDIR /app
 RUN useradd --create-home --uid 10001 findex
 COPY --from=build /app/.venv /app/.venv
+COPY --from=build /app/src /app/src
+ENV PYTHONPATH=/app/src
 COPY --from=build /app/data /app/data
 ENV PATH="/app/.venv/bin:$PATH" INDEX_PATH=/app/data/index.json CORPUS_PATH=/app/data/python_docs
 USER findex
