@@ -1,0 +1,59 @@
+name: Lab 08 evidence
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: lab-07
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install uv py-spy 'scalene<2'
+      - run: uv sync --locked
+      - run: uv run python scripts/download_python_docs.py
+      - run: mkdir -p docs
+      - run: |
+          py-spy record -o docs/index.svg -- .venv/bin/findex index data/python_docs --out data/index.json --positions
+          py-spy record -o docs/search.svg -- .venv/bin/findex search data/index.json 'python OR module OR class'
+      - name: Scalene baseline
+        run: |
+          uv run python -m pip --version || true
+          uv pip install 'scalene<2'
+          .venv/bin/python -m scalene --cpu-only --json --outfile docs/scalene-index.json .venv/bin/findex index data/python_docs --out data/index.json --positions
+          .venv/bin/python -m scalene --cpu-only --json --outfile docs/scalene-search.json .venv/bin/findex search data/index.json 'python OR module OR class'
+          python - <<'PY'
+          import json
+          for kind in ('index','search'):
+              d=json.load(open(f'docs/scalene-{kind}.json'))
+              for name, f in d.get('files',{}).items():
+                  if '/findex/' not in name: continue
+                  for line in f.get('functions',[]):
+                      print('LAB08_SCALENE',kind,name,line.get('line'),line.get('n_cpu_percent_python'),line.get('n_cpu_percent_c'))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lab08-profile
+          path: docs/
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify deployed version
+        run: |
+          url=https://findex-9t0d.onrender.com
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 30 "$url/openapi.json" | python -c 'import json,sys; assert json.load(sys.stdin)["info"]["version"]=="1.0.0"'; then
+              curl -fsS "$url/health"
+              curl -fsS "$url/search?q=python&k=2"
+              exit 0
+            fi
+            sleep 15
+          done
+          exit 1
