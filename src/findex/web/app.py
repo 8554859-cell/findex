@@ -1,4 +1,5 @@
 """FastAPI boundary for the immutable search index."""
+
 import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -15,8 +16,8 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from findex.index import Index
-from findex.ranking import BM25, Searcher, TfIdf, snippet
 from findex.query import parse, positive_terms
+from findex.ranking import BM25, Searcher, TfIdf, snippet
 from findex.store import load
 
 logger = logging.getLogger(__name__)
@@ -85,21 +86,33 @@ def read_document(index: Index, settings: Settings, doc_id: int) -> DocumentResp
     return DocumentResponse(doc_id=doc_id, title=meta.title, path=meta.path, text=text)
 
 
-def execute_search(index: Index, settings: Settings, q: str, k: int, scorer: ScorerName, page: int) -> SearchResponse:
+def execute_search(
+    index: Index, settings: Settings, q: str, k: int, scorer: ScorerName, page: int
+) -> SearchResponse:
     start = perf_counter()
     try:
         searcher = Searcher(index)
         total = len(searcher.ids(q))
         terms = positive_terms(parse(q))
-        ranked = searcher.search(q, BM25() if scorer == "bm25" else TfIdf(), min(total, page * k))
+        ranked = searcher.search(
+            q, BM25() if scorer == "bm25" else TfIdf(), min(total, page * k)
+        )
         results: list[Result] = []
-        for result in ranked[(page - 1) * k:page * k]:
+        for result in ranked[(page - 1) * k : page * k]:
             doc = read_document(index, settings, result.doc_id)
-            results.append(Result(doc_id=result.doc_id, title=result.title, score=result.score,
-                                  snippet=snippet(doc.text, terms)))
+            results.append(
+                Result(
+                    doc_id=result.doc_id,
+                    title=result.title,
+                    score=result.score,
+                    snippet=snippet(doc.text, terms),
+                )
+            )
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from None
-    return SearchResponse(query=q, total=total, took_ms=(perf_counter() - start) * 1000, results=results)
+    return SearchResponse(
+        query=q, total=total, took_ms=(perf_counter() - start) * 1000, results=results
+    )
 
 
 @asynccontextmanager
@@ -125,26 +138,46 @@ def create_app(mode: Literal["sync", "async"] | None = None) -> FastAPI:
     service.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
     @service.middleware("http")
-    async def request_id(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    async def request_id(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         identifier = uuid4().hex
         try:
             response = await call_next(request)
         except Exception:
             logger.exception("request_id=%s unexpected error", identifier)
-            response = JSONResponse({"detail": "Internal server error"}, status_code=500)
+            response = JSONResponse(
+                {"detail": "Internal server error"}, status_code=500
+            )
         response.headers["X-Request-ID"] = identifier
         return response
 
-    def sync_search(index: IndexDep, settings: SettingsDep, q: QueryText, k: PageSize = 10,
-                    scorer: ScorerName = "bm25", page: PageNumber = 1) -> SearchResponse:
+    def sync_search(
+        index: IndexDep,
+        settings: SettingsDep,
+        q: QueryText,
+        k: PageSize = 10,
+        scorer: ScorerName = "bm25",
+        page: PageNumber = 1,
+    ) -> SearchResponse:
         return execute_search(require_index(index), settings, q, k, scorer, page)
 
-    async def async_search(index: IndexDep, settings: SettingsDep, q: QueryText, k: PageSize = 10,
-                           scorer: ScorerName = "bm25", page: PageNumber = 1) -> SearchResponse:
+    async def async_search(
+        index: IndexDep,
+        settings: SettingsDep,
+        q: QueryText,
+        k: PageSize = 10,
+        scorer: ScorerName = "bm25",
+        page: PageNumber = 1,
+    ) -> SearchResponse:
         return execute_search(require_index(index), settings, q, k, scorer, page)
 
-    service.add_api_route("/search", async_search if (mode or Settings().search_mode) == "async" else sync_search,
-                          methods=["GET"], response_model=SearchResponse)
+    service.add_api_route(
+        "/search",
+        async_search if (mode or Settings().search_mode) == "async" else sync_search,
+        methods=["GET"],
+        response_model=SearchResponse,
+    )
 
     @service.get("/health")
     def health(index: IndexDep) -> dict[str, str]:
@@ -152,27 +185,53 @@ def create_app(mode: Literal["sync", "async"] | None = None) -> FastAPI:
         return {"status": "ok"}
 
     @service.get("/stats")
-    def stats(index: IndexDep, settings: SettingsDep, request: Request) -> dict[str, int | float]:
+    def stats(
+        index: IndexDep, settings: SettingsDep, request: Request
+    ) -> dict[str, int | float]:
         ix = require_index(index)
-        return {"documents": ix.num_docs, "vocabulary": len(ix),
-                "index_bytes": settings.index_path.stat().st_size if settings.index_path.is_file() else 0,
-                "uptime": monotonic() - cast(float, request.app.state.started)}
+        return {
+            "documents": ix.num_docs,
+            "vocabulary": len(ix),
+            "index_bytes": settings.index_path.stat().st_size
+            if settings.index_path.is_file()
+            else 0,
+            "uptime": monotonic() - cast(float, request.app.state.started),
+        }
 
     @service.get("/docs/{doc_id}")
-    def document(doc_id: int, index: IndexDep, settings: SettingsDep) -> DocumentResponse:
+    def document(
+        doc_id: int, index: IndexDep, settings: SettingsDep
+    ) -> DocumentResponse:
         return read_document(require_index(index), settings, doc_id)
 
     @service.get("/", response_class=HTMLResponse)
-    def home(request: Request, index: IndexDep, settings: SettingsDep,
-             q: Annotated[str, Query(max_length=500)] = "", page: PageNumber = 1) -> Response:
-        result = execute_search(require_index(index), settings, q, 10, "bm25", page) if q else None
-        return templates.TemplateResponse(request=request, name="search.html",
-            context={"result": result, "q": q, "page": page})
+    def home(
+        request: Request,
+        index: IndexDep,
+        settings: SettingsDep,
+        q: Annotated[str, Query(max_length=500)] = "",
+        page: PageNumber = 1,
+    ) -> Response:
+        result = (
+            execute_search(require_index(index), settings, q, 10, "bm25", page)
+            if q
+            else None
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="search.html",
+            context={"result": result, "q": q, "page": page},
+        )
 
     @service.get("/doc/{doc_id}", response_class=HTMLResponse)
-    def document_view(request: Request, doc_id: int, index: IndexDep, settings: SettingsDep) -> Response:
-        return templates.TemplateResponse(request=request, name="document.html",
-            context={"doc": read_document(require_index(index), settings, doc_id)})
+    def document_view(
+        request: Request, doc_id: int, index: IndexDep, settings: SettingsDep
+    ) -> Response:
+        return templates.TemplateResponse(
+            request=request,
+            name="document.html",
+            context={"doc": read_document(require_index(index), settings, doc_id)},
+        )
 
     return service
 

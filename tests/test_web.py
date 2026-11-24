@@ -16,7 +16,12 @@ def test_routes(corpus):
     assert len(result["results"]) == 1
     assert client.get("/search", params={"q": "python", "k": 0}).status_code == 422
     assert client.get("/search", params={"q": "("}).status_code == 422
-    assert client.get("/search", params={"q": "python", "page": 2, "k": 1}).json()["results"][0]["doc_id"] != result["results"][0]["doc_id"]
+    assert (
+        client.get("/search", params={"q": "python", "page": 2, "k": 1}).json()[
+            "results"
+        ][0]["doc_id"]
+        != result["results"][0]["doc_id"]
+    )
     assert client.get("/docs/999").status_code == 404
     assert client.get("/docs/0").status_code == 200
     assert client.get("/stats").json()["documents"] == 2
