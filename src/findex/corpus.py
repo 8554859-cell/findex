@@ -2,10 +2,10 @@
 
 import json
 import logging
-from typing import cast
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,5 @@
 """Cache robots rules by origin; fail closed on unavailable rules."""
+
 import asyncio
 from urllib.parse import urlsplit
 from urllib.robotparser import RobotFileParser
@@ -22,7 +23,9 @@ class RobotsCache:
                 parser = RobotFileParser()
                 result = await fetch(self.client, origin + "/robots.txt")
                 if result.status == 200:
-                    parser.parse(result.body.decode("utf-8", errors="replace").splitlines())
+                    parser.parse(
+                        result.body.decode("utf-8", errors="replace").splitlines()
+                    )
                 elif result.status == 404:
                     parser.parse(["User-agent: *", "Allow: /"])
                 else:

@@ -124,7 +124,9 @@ def build_measured(
             lengths[number] = sum(map(len, offsets.values()))
             meta[number] = DocMeta(doc.doc_id, doc.doc_id)
             for term, places in offsets.items():
-                postings[term].append(Posting(number, len(places), tuple(places) if positions else ()))
+                postings[term].append(
+                    Posting(number, len(places), tuple(places) if positions else ())
+                )
         return Index(dict(postings), lengths, meta), 0.0
     if workers < 1:
         raise ValueError("workers must be positive")

@@ -1,9 +1,10 @@
 """Bounded asynchronous HTTP requests."""
+
 import asyncio
 import logging
 import random
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from time import perf_counter
 
@@ -28,13 +29,18 @@ def retry_delay(value: str | None, attempt: int) -> float:
             return max(0.0, float(value))
         except ValueError:
             try:
-                return max(0.0, (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds())
+                return max(
+                    0.0,
+                    (parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds(),
+                )
             except (ValueError, TypeError, OverflowError):
                 pass
     return 0.25 * 2**attempt + random.uniform(0, 0.1)
 
 
-async def fetch(client: httpx.AsyncClient, url: str, *, timeout: float = 10.0) -> FetchResult:
+async def fetch(
+    client: httpx.AsyncClient, url: str, *, timeout: float = 10.0
+) -> FetchResult:
     start = perf_counter()
     result = FetchResult(url, 0, b"", 0.0)
     for attempt in range(4):
@@ -42,10 +48,21 @@ async def fetch(client: httpx.AsyncClient, url: str, *, timeout: float = 10.0) -
         try:
             async with asyncio.timeout(timeout):
                 response = await client.get(url, follow_redirects=False)
-            result = FetchResult(url, response.status_code, response.content, perf_counter() - start,
-                                 response.headers.get("content-type", ""))
-            logger.info("url=%s status=%d bytes=%d elapsed=%.4f attempt=%d", url, result.status,
-                        len(result.body), result.elapsed, attempt + 1)
+            result = FetchResult(
+                url,
+                response.status_code,
+                response.content,
+                perf_counter() - start,
+                response.headers.get("content-type", ""),
+            )
+            logger.info(
+                "url=%s status=%d bytes=%d elapsed=%.4f attempt=%d",
+                url,
+                result.status,
+                len(result.body),
+                result.elapsed,
+                attempt + 1,
+            )
             if result.status != 429 and not 500 <= result.status <= 599:
                 return result
             delay = retry_delay(response.headers.get("Retry-After"), attempt)

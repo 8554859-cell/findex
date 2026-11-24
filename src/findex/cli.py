@@ -7,8 +7,8 @@ import pickle
 from dataclasses import asdict
 from pathlib import Path
 from time import monotonic
-from urllib.parse import urlsplit
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
 import typer
 from rich.console import Console
@@ -139,11 +139,22 @@ def crawl_command(
 
     async def run() -> None:
         with out.open("w", encoding="utf-8") as stream, Live(console=err) as live:
-            async for page in crawl([seed_url], max_pages=max_pages, concurrency=concurrency,
-                                    per_host=per_host, allowed_domains={host}, stats=stats):
-                await asyncio.to_thread(stream.write, json.dumps(asdict(page), ensure_ascii=False) + "\n")
+            async for page in crawl(
+                [seed_url],
+                max_pages=max_pages,
+                concurrency=concurrency,
+                per_host=per_host,
+                allowed_domains={host},
+                stats=stats,
+            ):
+                await asyncio.to_thread(
+                    stream.write, json.dumps(asdict(page), ensure_ascii=False) + "\n"
+                )
                 await asyncio.to_thread(stream.flush)
-                live.update(f"Pages {stats.pages} | {stats.pages / max(monotonic() - start, 0.001):.1f}/s | in-flight {stats.in_flight} | errors {stats.errors} | queue {stats.queue_depth}")
+                live.update(
+                    f"Pages {stats.pages} | {stats.pages / max(monotonic() - start, 0.001):.1f}/s | in-flight {stats.in_flight} | errors {stats.errors} | queue {stats.queue_depth}"
+                )
+
     try:
         asyncio.run(run(), debug=True)
     finally:

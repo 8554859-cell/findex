@@ -1,0 +1,3 @@
+INFO url=http://127.0.0.1:39657/1 status=429 bytes=5 elapsed=0.0309 attempt=1
+INFO url=http://127.0.0.1:39657/1 retry delay=0.000
+INFO url=http://127.0.0.1:39657/1 status=200 bytes=57 elapsed=0.0618 attempt=2

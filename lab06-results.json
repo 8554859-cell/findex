@@ -1,0 +1,26 @@
+[
+  {
+    "concurrency": 1,
+    "pages": 200,
+    "wall": 6.569238469000027,
+    "pages_per_second": 30.444929186813965,
+    "errors": 0,
+    "rss_mib": 41.12890625
+  },
+  {
+    "concurrency": 5,
+    "pages": 200,
+    "wall": 1.446175318999991,
+    "pages_per_second": 138.29581889026917,
+    "errors": 0,
+    "rss_mib": 37.3515625
+  },
+  {
+    "concurrency": 20,
+    "pages": 200,
+    "wall": 1.5596981019999987,
+    "pages_per_second": 128.22994382280794,
+    "errors": 0,
+    "rss_mib": 37.50390625
+  }
+]

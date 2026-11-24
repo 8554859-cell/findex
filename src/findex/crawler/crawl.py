@@ -1,9 +1,10 @@
 """Queue-based asynchronous crawler."""
+
 import asyncio
 import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from html.parser import HTMLParser
 from time import monotonic
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
@@ -18,8 +19,15 @@ logger = logging.getLogger("findex.crawler")
 
 def canonicalize(url: str) -> str:
     parts = urlsplit(url)
-    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(),
-                       parts.path.rstrip("/") or "/", urlencode(sorted(parse_qsl(parts.query, keep_blank_values=True))), ""))
+    return urlunsplit(
+        (
+            parts.scheme.lower(),
+            parts.netloc.lower(),
+            parts.path.rstrip("/") or "/",
+            urlencode(sorted(parse_qsl(parts.query, keep_blank_values=True))),
+            "",
+        )
+    )
 
 
 class Extractor(HTMLParser):
@@ -71,9 +79,15 @@ class CrawlStats:
 
 
 async def crawl(
-    seeds: list[str], *, max_pages: int = 500, concurrency: int = 10,
-    per_host: int = 2, allowed_domains: set[str], delay: float = 0.05,
-    stats: CrawlStats | None = None, transport: httpx.AsyncBaseTransport | None = None,
+    seeds: list[str],
+    *,
+    max_pages: int = 500,
+    concurrency: int = 10,
+    per_host: int = 2,
+    allowed_domains: set[str],
+    delay: float = 0.05,
+    stats: CrawlStats | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
 ) -> AsyncIterator[Page]:
     if min(max_pages, concurrency, per_host) < 1 or delay < 0:
         raise ValueError("Invalid crawl limits")
@@ -92,7 +106,11 @@ async def crawl(
         try:
             url = canonicalize(url)
             parts = urlsplit(url)
-            if parts.scheme not in ("http", "https") or parts.hostname not in domains or parts.username:
+            if (
+                parts.scheme not in ("http", "https")
+                or parts.hostname not in domains
+                or parts.username
+            ):
                 return
         except ValueError:
             return
@@ -103,7 +121,9 @@ async def crawl(
 
     for seed in seeds:
         enqueue(seed)
-    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, transport=transport, trust_env=False) as client:
+    async with httpx.AsyncClient(
+        headers={"User-Agent": USER_AGENT}, transport=transport, trust_env=False
+    ) as client:
         robots = RobotsCache(client)
 
         async def worker() -> None:
@@ -116,14 +136,19 @@ async def crawl(
                         continue
                     attempted += 1
                     host = urlsplit(url).hostname or ""
-                    async with global_limit, host_limits.setdefault(host, asyncio.Semaphore(per_host)):
+                    async with (
+                        global_limit,
+                        host_limits.setdefault(host, asyncio.Semaphore(per_host)),
+                    ):
                         metrics.in_flight += 1
                         try:
                             if not await robots.allowed(url):
                                 logger.info("url=%s robots denied", url)
                                 continue
                             async with host_locks.setdefault(host, asyncio.Lock()):
-                                await asyncio.sleep(max(0.0, last.get(host, 0.0) + delay - monotonic()))
+                                await asyncio.sleep(
+                                    max(0.0, last.get(host, 0.0) + delay - monotonic())
+                                )
                                 last[host] = monotonic()
                             response = await fetch(client, url)
                         finally:
@@ -134,12 +159,20 @@ async def crawl(
                     if "html" not in response.content_type.lower():
                         continue
                     parser = Extractor()
-                    await asyncio.to_thread(parser.feed, response.body.decode("utf-8", errors="replace"))
+                    await asyncio.to_thread(
+                        parser.feed, response.body.decode("utf-8", errors="replace")
+                    )
                     for link in parser.links:
                         enqueue(urljoin(url, link))
                     metrics.pages += 1
-                    await results.put(Page(url, " ".join(parser.titles) or url,
-                                           " ".join(parser.words), datetime.now(timezone.utc).isoformat()))
+                    await results.put(
+                        Page(
+                            url,
+                            " ".join(parser.titles) or url,
+                            " ".join(parser.words),
+                            datetime.now(UTC).isoformat(),
+                        )
+                    )
                 finally:
                     frontier.task_done()
 
