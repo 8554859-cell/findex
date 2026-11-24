@@ -41,7 +41,7 @@ class Index:
     doc_meta: dict[int, DocMeta]
 
     @cached_property
-    def arrays(self) -> Arrays:
+    def arrays(self) -> "Arrays":
         from findex.vector import Arrays
 
         return Arrays(self)

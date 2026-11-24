@@ -16,10 +16,10 @@ for label, query in (("common", common), ("rare", rare), ("three", "python OR mo
     ids = engine.ids(query)
     terms = positive_terms(parse(query))
     scorer = BM25()
-    def scalar():
+    def scalar(ids=ids, terms=terms, scorer=scorer):
         return engine.scalar_rank(ids, terms, scorer, 10)
 
-    def vector():
+    def vector(query=query, scorer=scorer):
         return engine.search(query, scorer, 10)
     scalar()
     vector()
