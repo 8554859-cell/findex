@@ -1,0 +1,26 @@
+[
+  {
+    "label": "common",
+    "query": "the",
+    "docs": 6124,
+    "scalar_ms": 9.350942499999348,
+    "numpy_ms": 0.2622390000013297,
+    "speedup": 35.658092426953786
+  },
+  {
+    "label": "rare",
+    "query": "aaaaabbbbcccdde",
+    "docs": 1,
+    "scalar_ms": 0.0037159999983771286,
+    "numpy_ms": 0.02809749999954647,
+    "speedup": 0.1322537591756245
+  },
+  {
+    "label": "three",
+    "query": "python OR module OR class",
+    "docs": 1738,
+    "scalar_ms": 2.9583660000014333,
+    "numpy_ms": 0.1398940000001403,
+    "speedup": 21.147197163555738
+  }
+]

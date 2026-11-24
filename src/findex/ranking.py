@@ -97,10 +97,16 @@ class Searcher:
         for result in best:
             path = self.corpus / self.index.doc_meta[result.doc_id].path
             text = path.read_text(encoding="utf-8")
-            results.append(SearchResult(result.score, result.doc_id, result.title, snippet(text, terms)))
+            results.append(
+                SearchResult(
+                    result.score, result.doc_id, result.title, snippet(text, terms)
+                )
+            )
         return results
 
-    def scalar_rank(self, ids: frozenset[int], terms: set[str], scorer: Scorer, k: int) -> list[SearchResult]:
+    def scalar_rank(
+        self, ids: frozenset[int], terms: set[str], scorer: Scorer, k: int
+    ) -> list[SearchResult]:
         scores = dict.fromkeys(ids, 0.0)
         for term in sorted(terms):
             for posting in self.index.postings.get(term, []):
