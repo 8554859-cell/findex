@@ -1,8 +1,10 @@
 """Read one text document at a time."""
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Iterator
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -19,6 +21,6 @@ def iter_documents(root: Path) -> Iterator[Document]:
         try:
             text = path.read_text(encoding="utf-8")
         except (UnicodeError, OSError) as exc:
-            logging.warning("Skipping %s: %s", path, exc)
+            logger.warning("Skipping %s: %s", path, exc)
             continue
         yield Document(path.relative_to(root).as_posix(), path, text)
