@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.progress import Progress
 from rich.table import Table
 
-from findex.index import build_index
+from findex.index import ExecutorName, build_index
 from findex.ranking import BM25, Searcher, TfIdf
 from findex.store import load, save
 
@@ -44,13 +44,15 @@ def index_command(
     out: Annotated[Path, typer.Option("--out")],
     positions: bool = False,
     limit: Annotated[int | None, typer.Option(min=0)] = None,
+    workers: Annotated[int, typer.Option(min=1)] = 1,
+    executor: ExecutorName = "serial",
 ) -> None:
     try:
         if not corpus.is_dir():
             raise ValueError("Corpus directory does not exist")
         with Progress(console=err) as progress:
             task = progress.add_task("Building index", total=None)
-            index = build_index(corpus, positions, limit)
+            index = build_index(corpus, positions, limit, workers, executor)
             save(index, out)
             progress.update(task, total=1, completed=1)
         console.print(f"Indexed {index.num_docs} documents")

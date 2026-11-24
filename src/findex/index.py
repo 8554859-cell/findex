@@ -2,15 +2,17 @@
 
 import argparse
 import tracemalloc
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from multiprocessing import get_context
 from collections import Counter, defaultdict
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from functools import cached_property
 from itertools import islice
 from pathlib import Path
 from time import perf_counter
+from typing import Literal
 
-from findex.corpus import iter_documents
 from findex.timing import timed
 from findex.tokenize import tokenize
 
@@ -64,24 +66,84 @@ class Index:
         return len(self.postings.get(term, []))
 
 
-@timed
-def build_index(root: Path, positions: bool = False, limit: int | None = None) -> Index:
+ExecutorName = Literal["serial", "threads", "processes"]
+PartialIndex = Index
+
+
+def build_partial(
+    doc_paths: list[Path], root: Path, start_id: int = 0, positions: bool = False
+) -> PartialIndex:
     postings: defaultdict[str, list[Posting]] = defaultdict(list)
     lengths: dict[int, int] = {}
     meta: dict[int, DocMeta] = {}
-    docs = iter_documents(root)
-    for number, doc in enumerate(islice(docs, limit)):
+    for number, path in enumerate(doc_paths, start_id):
+        text = path.read_text(encoding="utf-8")
         counts: Counter[str] = Counter()
         offsets: defaultdict[str, list[int]] = defaultdict(list)
-        for offset, token in enumerate(tokenize(doc.text)):
+        for offset, token in enumerate(tokenize(text)):
             counts[token] += 1
             if positions:
                 offsets[token].append(offset)
         lengths[number] = sum(counts.values())
-        meta[number] = DocMeta(doc.doc_id, doc.path.stem)
+        meta[number] = DocMeta(path.relative_to(root).as_posix(), path.stem)
         for term, tf in counts.items():
             postings[term].append(Posting(number, tf, tuple(offsets[term])))
     return Index(dict(postings), lengths, meta)
+
+
+def merge(partials: Iterable[PartialIndex]) -> Index:
+    postings: defaultdict[str, list[Posting]] = defaultdict(list)
+    lengths: dict[int, int] = {}
+    meta: dict[int, DocMeta] = {}
+    for partial in partials:
+        if lengths.keys() & partial.doc_lengths.keys():
+            raise ValueError("Duplicate document ID")
+        lengths.update(partial.doc_lengths)
+        meta.update(partial.doc_meta)
+        for term, records in partial.postings.items():
+            postings[term].extend(records)
+    return Index(dict(postings), lengths, meta)
+
+
+def build_measured(
+    root: Path,
+    positions: bool = False,
+    limit: int | None = None,
+    workers: int = 1,
+    executor: ExecutorName = "serial",
+) -> tuple[Index, float]:
+    if workers < 1:
+        raise ValueError("workers must be positive")
+    paths = list(islice((p for p in root.rglob("*.txt") if p.is_file()), limit))
+    size = max(1, (len(paths) + workers - 1) // workers)
+    chunks = [(paths[i : i + size], root, i, positions) for i in range(0, len(paths), size)]
+    if executor == "serial":
+        partials = [build_partial(paths, root, 0, positions)]
+    elif executor in ("threads", "processes"):
+        pool = (
+            ThreadPoolExecutor(max_workers=workers)
+            if executor == "threads"
+            else ProcessPoolExecutor(max_workers=workers, mp_context=get_context("spawn"))
+        )
+        with pool:
+            futures = [pool.submit(build_partial, *chunk) for chunk in chunks]
+            partials = [future.result() for future in futures]
+    else:
+        raise ValueError("Unknown executor")
+    start = perf_counter()
+    index = merge(partials)
+    return index, perf_counter() - start
+
+
+@timed
+def build_index(
+    root: Path,
+    positions: bool = False,
+    limit: int | None = None,
+    workers: int = 1,
+    executor: ExecutorName = "serial",
+) -> Index:
+    return build_measured(root, positions, limit, workers, executor)[0]
 
 
 def main() -> None:

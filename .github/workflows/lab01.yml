@@ -15,6 +15,9 @@ jobs:
           python-version: '3.13'
       - run: pip install uv
       - run: uv sync --locked
+      - run: uv run ruff check --fix .
+      - run: uv run ruff format .
+      - run: git diff
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pyright
@@ -26,3 +29,27 @@ jobs:
         with:
           name: findex-wheel
           path: dist/*.whl
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install uv
+      - run: uv sync --locked
+      - run: uv run python scripts/download_python_docs.py
+      - run: uv run python scripts/benchmark_lab05.py data/python_docs | tee lab05-normal.txt
+      - run: uv python install 3.13t
+      - run: uv run --python 3.13t --no-project python -c 'import sys; assert not sys._is_gil_enabled(); print(sys._is_gil_enabled())'
+      - run: PYTHONPATH=src uv run --python 3.13t --no-project python scripts/benchmark_lab05.py data/python_docs --free | tee lab05-free.txt
+      - run: cat lab05-normal.txt lab05-free.txt > lab05-results.txt
+      - run: uv run --with matplotlib python scripts/plot_lab05.py lab05-results.txt
+      - run: python -c 'import base64; print("LAB05_PNG " + base64.b64encode(open("lab05-speedup.png","rb").read()).decode())'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lab05-benchmark
+          path: |
+            lab05-results.txt
+            lab05-speedup.png
