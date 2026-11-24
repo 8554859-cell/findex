@@ -10,7 +10,6 @@ from findex.ranking import BM25, Searcher, TfIdf
 from findex.store import load
 from findex.tokenize import tokenize
 
-
 Operator = Literal["AND", "OR", "NOT"]
 Engine = Literal["merge", "set"]
 

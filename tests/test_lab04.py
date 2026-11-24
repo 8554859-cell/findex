@@ -1,7 +1,8 @@
 import json
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 from typer.testing import CliRunner
 
 from findex.cli import app

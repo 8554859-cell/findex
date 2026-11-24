@@ -1,8 +1,8 @@
 """Build a streaming inverted index."""
 import argparse
-from collections.abc import Iterator
 import tracemalloc
 from collections import Counter, defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import cached_property
 from itertools import islice

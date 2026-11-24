@@ -3,14 +3,11 @@ import logging
 from collections.abc import Callable
 from functools import wraps
 from time import perf_counter
-from typing import ParamSpec, TypeVar
 
-P = ParamSpec("P")
-T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
 
-def timed(fn: Callable[P, T]) -> Callable[P, T]:
+def timed[**P, T](fn: Callable[P, T]) -> Callable[P, T]:
     @wraps(fn)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         start = perf_counter()
