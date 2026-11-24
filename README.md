@@ -1,10 +1,66 @@
-# findex — Лабораторна робота №7
+# findex — пошуковий рушій Python v1.0.0
 
-**Публічна адреса:** [https://findex-9t0d.onrender.com](https://findex-9t0d.onrender.com)
+**[Живий сайт](https://findex-9t0d.onrender.com)** · **[API](https://findex-9t0d.onrender.com/docs)** · **[Методичка Lab 8](https://github.com/rmalkevy/Programming-Practice-Projects/blob/main/courses/python/lab-08-performance-and-semantic-search.md)**
+
+11 284 документів у локальному експерименті · 37.72× прискорення поширеного терміна · 56 тестів, 84% покриття. P95 попереднього публічного HTTP тесту — 2301 мс (Lab 7, не новий реліз).
 
 Студент: Аркан Арсеній Станіславович, Б-122-23-1-ТП. Навчальна реалізація за допомогою ШІ.
 
-[Методичка](https://github.com/rmalkevy/Programming-Practice-Projects/blob/main/courses/python/lab-07-fastapi-web-search.md)
+## Архітектура
+
+```mermaid
+flowchart LR
+ A[Corpus Lab 1] --> B[Crawler Lab 4]
+ B --> C[Tokenizer Lab 1]
+ C --> D[Index Lab 2 / 6]
+ D --> E[BM25 / TF-IDF Lab 3 / 8]
+ E --> F[FastAPI Lab 7]
+ F --> G[Jinja UI Lab 7]
+ D --> H[Gap encoding / mmap Lab 8]
+```
+
+## Lab 8: вимірювання
+
+[Перевірений CI](https://github.com/8554859-cell/findex/actions/runs/45477435361), Python 3.13, 30 повторів, медіана, прогрітий індекс.
+
+| Запит | Збігів | Scalar, мс | NumPy, мс | Прискорення |
+|---|---:|---:|---:|---:|
+| the | 6124 | 12.2310 | 0.3242 | 37.72× |
+| aaaaabbbbcccdde | 1 | 0.004872 | 0.040397 | 0.12× |
+| python OR module OR class | 1738 | 3.9083 | 0.1684 | 23.21× |
+
+NumPy переносить цикл скорингу в компільовані операції. Рідкісний термін повільніший через виділення масивів та виклики NumPy. Тести перевіряють ідентичність ID і близькість оцінок. Argpartition визначає top-k; однакові оцінки впорядковано за ID.
+
+### Альтернатива семантичному пошуку
+
+Через 512 MB RAM Render обрано поглиблену оптимізацію: окремий модуль gap encoding, стиснення NPZ і mmap. Це експеримент зі списком входжень, реплікованим 10 разів, а не новий повний корпус. Основний сервіс використовує кешовані масиви NumPy, не mmap.
+
+| Масштаб | Віртуальні документи | Входження | Raw bytes | NPZ bytes | mmap write/open, мс | decode, мс |
+|---|---:|---:|---:|---:|---:|---:|
+| 1× | 11284 | 6124 | 48992 | 6869 | 1.373 | 1.137 |
+| 10× | 112840 | 61240 | 489920 | 28868 | 0.954 | 1.291 |
+
+На 10× стиснення економить 94.1% дискового простору. Декодування перевірено на точну відповідність. Час mmap включає запис і відкриття, не повне читання сторінок. Результати не є гарантією швидкодії на іншій машині.
+
+## Профілювання
+
+[Початкові вимірювання і гіпотези](docs/profile-baseline.md). [Реальні flame graphs та cProfile](https://github.com/8554859-cell/findex/actions/runs/45475052468/artifacts/14959316896). Scalene ще не підтверджено; розподіл Python/native не вигадано.
+
+## Попередні лабораторні
+
+- [Lab 1: код, README та вимірювання](https://github.com/8554859-cell/findex/tree/lab-01)
+- [Lab 2: код, README та вимірювання](https://github.com/8554859-cell/findex/tree/lab-02)
+- [Lab 3: код, README та вимірювання](https://github.com/8554859-cell/findex/tree/lab-03)
+- [Lab 4: код, README та вимірювання](https://github.com/8554859-cell/findex/tree/lab-04)
+- [Lab 5: код, README та вимірювання](https://github.com/8554859-cell/findex/tree/lab-05)
+- [Lab 6: код, README та вимірювання](https://github.com/8554859-cell/findex/tree/lab-06)
+- [Lab 7: код, README та вимірювання](https://github.com/8554859-cell/findex/tree/lab-07)
+
+## Обмеження і демонстрація
+
+Не реалізовано embeddings/RRF; обрано альтернативу з методички. JSON-індекс і Python postings залишаються в пам'яті; mmap експериментальний. Render може засинати, а мережа впливає на latency. GIF і відео з голосом студента ще не записані. План демонстрації: відкрити сайт, пошук python OR module, відкрити документ, показати Swagger та таблиці вимірювань, пояснити повільний рідкісний запит і помилку імпорту типів.
+
+## Запуск та результати Lab 7
 
 ## Запуск
 ```sh

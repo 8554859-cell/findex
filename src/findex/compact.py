@@ -14,9 +14,7 @@ def decode_gaps(gaps: NDArray[np.int32]) -> NDArray[np.int32]:
     return np.cumsum(gaps, dtype=np.int32)
 
 
-def write_postings(
-    path: Path, ids: NDArray[np.int32], tfs: NDArray[np.int32]
-) -> None:
+def write_postings(path: Path, ids: NDArray[np.int32], tfs: NDArray[np.int32]) -> None:
     gaps = encode_gaps(ids)
     np.savez_compressed(path, gaps=gaps, tfs=tfs)
 

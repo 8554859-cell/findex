@@ -1,26 +1,48 @@
-[
-  {
-    "label": "common",
-    "query": "the",
-    "docs": 6124,
-    "scalar_ms": 9.350942499999348,
-    "numpy_ms": 0.2622390000013297,
-    "speedup": 35.658092426953786
-  },
-  {
-    "label": "rare",
-    "query": "aaaaabbbbcccdde",
-    "docs": 1,
-    "scalar_ms": 0.0037159999983771286,
-    "numpy_ms": 0.02809749999954647,
-    "speedup": 0.1322537591756245
-  },
-  {
-    "label": "three",
-    "query": "python OR module OR class",
-    "docs": 1738,
-    "scalar_ms": 2.9583660000014333,
-    "numpy_ms": 0.1398940000001403,
-    "speedup": 21.147197163555738
-  }
-]
+{
+  "run": 45477435361,
+  "rows": [
+    {
+      "query": "the",
+      "docs": 6124,
+      "scalar_ms": 12.2310235,
+      "numpy_ms": 0.324249,
+      "speedup": 37.72108317967615
+    },
+    {
+      "query": "aaaaabbbbcccdde",
+      "docs": 1,
+      "scalar_ms": 0.004872,
+      "numpy_ms": 0.0403965,
+      "speedup": 0.1206045077766202
+    },
+    {
+      "query": "python OR module OR class",
+      "docs": 1738,
+      "scalar_ms": 3.9083335,
+      "numpy_ms": 0.168424,
+      "speedup": 23.205324062800056
+    }
+  ],
+  "large": [
+    {
+      "factor": 1,
+      "virtual_docs": 11284,
+      "postings": 6124,
+      "raw_bytes": 48992,
+      "compressed_bytes": 6869,
+      "mmap_write_open_ms": 1.373162,
+      "compress_ms": 5.436234,
+      "decode_ms": 1.137436
+    },
+    {
+      "factor": 10,
+      "virtual_docs": 112840,
+      "postings": 61240,
+      "raw_bytes": 489920,
+      "compressed_bytes": 28868,
+      "mmap_write_open_ms": 0.954311,
+      "compress_ms": 11.869333,
+      "decode_ms": 1.291329
+    }
+  ]
+}
