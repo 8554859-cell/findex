@@ -1,61 +1,27 @@
-# findex — Лабораторна робота №3
+# findex — Лабораторна робота №4
 
 Студент: Аркан Арсеній Станіславович, Б-122-23-1-ТП.
-Навчальна реалізація за допомогою ШІ. [Методичка](https://github.com/rmalkevy/Programming-Practice-Projects/blob/main/courses/python/lab-03-the-object-model-and-ranking.md).
+Навчальна реалізація за допомогою ШІ. [Методичка](https://github.com/rmalkevy/Programming-Practice-Projects/blob/main/courses/python/lab-04-typing-testing-packaging-cli.md).
 
-Попередні версії: [Lab 01](../lab-01), [Lab 02](../lab-02).
-
-## Мета
-Модель об'єктів Python, протоколи, ранжування, рекурсивний парсер, декоратори.
+[![CI](https://github.com/8554859-cell/findex/actions/workflows/lab01.yml/badge.svg)](https://github.com/8554859-cell/findex/actions/workflows/lab01.yml)
 
 ## Запуск
 ```sh
 uv sync
 uv run python scripts/download_python_docs.py
-uv run python -m findex.index data/python_docs --out positional.bin --positions
-uv run python -m findex.search positional.bin 'python AND (async OR await) NOT java' --scorer bm25 --corpus data/python_docs
-uv run python -m findex.search positional.bin '"event loop"' --scorer tfidf --corpus data/python_docs
-uv run pytest -q
+uv tool install .
+findex index data/python_docs --out index.json --positions
+findex search index.json "python OR module" --corpus data/python_docs
+findex search index.json "python" --json
+findex stats index.json
 uv run ruff check .
+uv run ruff format --check .
+uv run pyright
+uv run pytest --cov=findex --cov-report=term-missing
+uv build
 ```
 
-## Реалізація
-Index реалізує спеціальні методи контейнера, cached_property для середньої довжини, df та контекстний менеджер open_index у store.py. Позиції токенів опційні; для фраз потрібно створювати індекс з --positions. Старі файли без позицій читаються.
-Scorer — структурний протокол; TF-IDF використовує логарифмічну TF, BM25 — насичення TF і нормалізацію довжини. heapq.nlargest обмежує результати до k.
-Парсер: NOT має найвищий пріоритет, AND (у тому числі неявний) — середній, OR — найнижчий. Вузли підтримують &, |, ~. Фраза перевіряє послідовні позиції.
-timed використовує wraps; Searcher.ids кешує результати запиту, а search друкує cache hit. Сніпет виділяє терміни зірочками навколо найбільш насиченого збігами фрагмента.
+CLI використовує Typer і Rich; JSON-рядки спрямовуються у stdout, логування — stderr. Для діагностики використовуйте -v або -vv перед підкомандою. Pickle відкривайте лише з довірених джерел.
 
 ## Перевірка
-Фактичний запуск [GitHub Actions](https://github.com/8554859-cell/findex/actions/runs/45445803436), 24.11.2026, Linux / Python 3.13: 13 тестів пройдено, Ruff без помилок. Корпус: 11284 документи, середня довжина 31.331 токена. У журналі підтверджено 10 cache hits та час виконання декорованих функцій.
-
-### Три контрольні експерименти BM25
-
-Контрольовані приклади використовують фактичні DF і середню довжину корпусу; довжини та частоти окремих проб задані експериментально.
-
-| Експеримент | Результат |
-|---|---|
-| Рідкісний термін 00010203 проти частого the, однакова довжина й TF=1 | 8.968390 проти 0.614096 |
-| TF=19 проти TF=20, довжина 31 | 1.416964 проти 1.422128 |
-| Довжина 31 проти 310, TF=1 | 0.614096 проти 0.122175 |
-
-Рідкісний термін має більшу вагу; двадцяте повторення додає лише 0.005165 бала; короткий документ має вищий бал за однакової частоти.
-
-### Precision@5
-
-Критерії релевантності визначено заздалегідь за модулем документації та наявністю поняття у тексті (див. scripts/evaluate_lab03.py). Це оцінювання за правилами, запропонованими ШІ, а не незалежна ручна розмітка студентом. Для остаточної ручної оцінки студенту потрібно переглянути документи та підтвердити релевантність. P@5 = кількість релевантних результатів серед перших п'яти / 5.
-
-| Запит | TF-IDF | BM25 |
-|---|---:|---:|
-| event AND loop | 1.0 | 0.6 |
-| regular AND expression | 0.6 | 0.4 |
-| json AND encode | 0.6 | 0.6 |
-| path AND directory | 0.0 | 0.6 |
-| thread AND lock | 1.0 | 0.4 |
-| hash AND digest | 0.2 | 0.2 |
-| date AND time | 0.2 | 0.8 |
-| socket AND address | 0.4 | 0.4 |
-| compress AND data | 0.6 | 0.6 |
-| argument AND parser | 0.2 | 0.2 |
-| Середнє | 0.48 | 0.48 |
-
-За цією невеликою вибіркою середня точність однакова, але окремі запити відрізняються. Вимірювання виконані у хмарному середовищі GitHub. Матеріали захисту: DEFENSE_LAB03.md.
+Результати CI, покриття, lock-файл та публікація wheel ще не підтверджені. Попередні лабораторні збережені тегами lab-01 — lab-03.

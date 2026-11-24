@@ -2,19 +2,20 @@
 import argparse
 import tracemalloc
 from collections import Counter
+from collections.abc import Iterator
 from itertools import islice
 from pathlib import Path
 from time import perf_counter
 
-from findex.corpus import iter_documents
+from findex.corpus import Document, iter_documents
 from findex.tokenize import tokenize
 
 
-def collect_stats(root, limit=None, eager=False):
-    docs = iter_documents(root)
+def collect_stats(root: Path, limit: int | None = None, eager: bool = False) -> tuple[int, Counter[str]]:
+    docs: Iterator[Document] = iter_documents(root)
     if limit is not None:
         docs = islice(docs, limit)
-    counts = Counter()
+    counts: Counter[str] = Counter()
     n_docs = 0
     if eager:
         documents = list(docs)
@@ -29,7 +30,7 @@ def collect_stats(root, limit=None, eager=False):
     return n_docs, counts
 
 
-def measure(root, limit=None, eager=False):
+def measure(root: Path, limit: int | None = None, eager: bool = False) -> tuple[tuple[int, Counter[str]], float, int]:
     tracemalloc.start()
     start = perf_counter()
     try:
@@ -41,7 +42,7 @@ def measure(root, limit=None, eager=False):
         tracemalloc.stop()
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=Path)
     parser.add_argument("--limit", type=int)

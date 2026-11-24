@@ -1,14 +1,21 @@
 """Timing decorator."""
+import logging
+from collections.abc import Callable
 from functools import wraps
 from time import perf_counter
+from typing import ParamSpec, TypeVar
+
+P = ParamSpec("P")
+T = TypeVar("T")
+logger = logging.getLogger(__name__)
 
 
-def timed(fn):
+def timed(fn: Callable[P, T]) -> Callable[P, T]:
     @wraps(fn)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         start = perf_counter()
         try:
             return fn(*args, **kwargs)
         finally:
-            print(f"{fn.__name__}: {(perf_counter()-start)*1000:.3f} ms")
+            logger.info("%s: %.3f ms", fn.__name__, (perf_counter() - start) * 1000)
     return wrapper

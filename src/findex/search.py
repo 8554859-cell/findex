@@ -3,15 +3,21 @@ import argparse
 import tracemalloc
 from pathlib import Path
 from time import perf_counter
+from typing import Literal, cast
 
+from findex.index import Index
 from findex.ranking import BM25, Searcher, TfIdf
 from findex.store import load
 from findex.tokenize import tokenize
 
 
-def merge(a, b, op):
+Operator = Literal["AND", "OR", "NOT"]
+Engine = Literal["merge", "set"]
+
+
+def merge(a: list[int], b: list[int], op: Operator) -> list[int]:
     i = j = 0
-    out = []
+    out: list[int] = []
     while i < len(a) and j < len(b):
         if a[i] == b[j]:
             if op != "NOT":
@@ -33,24 +39,24 @@ def merge(a, b, op):
     return out
 
 
-def combine(a, b, op, engine):
+def combine(a: list[int], b: list[int], op: Operator, engine: Engine) -> list[int]:
     if engine == "merge":
         return merge(a, b, op)
     left, right = set(a), set(b)
     return sorted({"AND": left & right, "OR": left | right, "NOT": left - right}[op])
 
 
-def search(index, query, engine="merge"):
+def search(index: Index, query: str, engine: Engine = "merge") -> list[int]:
     parts = query.split()
-    result = None
-    op = "AND"
+    result: list[int] | None = None
+    op: Operator = "AND"
     negate = False
     pending = False
     for part in parts:
         if part in {"AND", "OR"}:
             if result is None or pending:
                 raise ValueError("Unexpected Boolean operator")
-            op, pending = part, True
+            op, pending = cast(Operator, part), True
             continue
         if part == "NOT":
             if negate:
@@ -68,7 +74,7 @@ def search(index, query, engine="merge"):
     return result or []
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("index", type=Path)
     parser.add_argument("query")

@@ -1,14 +1,16 @@
 """Persist indexes in pickle or JSON."""
 import json
 import pickle
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import cast
 
 from findex.index import DocMeta, Index, Posting
 from findex.timing import timed
 
 
-def save(index, path):
+def save(index: Index, path: Path) -> None:
     path = Path(path)
     if path.suffix == ".json":
         data = {
@@ -28,14 +30,15 @@ def save(index, path):
 
 
 @timed
-def load(path):
+def load(path: Path) -> Index:
     path = Path(path)
     if path.suffix == ".json":
-        data = json.loads(path.read_text(encoding="utf-8"))
-        postings, lengths, meta = data["postings"], data["lengths"], data["meta"]
+        data = cast(dict[str, object], json.loads(path.read_text(encoding="utf-8")))
+        raw = (data["postings"], data["lengths"], data["meta"])
     else:
         # Never load an untrusted pickle: deserialization can execute arbitrary code.
-        postings, lengths, meta = pickle.loads(path.read_bytes())
+        raw = pickle.loads(path.read_bytes())
+    postings, lengths, meta = cast(tuple[dict[str, list[tuple[int, int] | tuple[int, int, tuple[int, ...]]]], dict[int | str, int], dict[int | str, tuple[str, str]]], raw)
     return Index(
         {k: [Posting(p[0], p[1], tuple(p[2]) if len(p) > 2 else ()) for p in v] for k, v in postings.items()},
         {int(k): v for k, v in lengths.items()},
@@ -44,7 +47,7 @@ def load(path):
 
 
 @contextmanager
-def open_index(path):
+def open_index(path: Path) -> Iterator[Index]:
     # load uses Path methods that close files before returning, even on errors.
     index = load(path)
     try:

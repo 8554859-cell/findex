@@ -1,9 +1,11 @@
 """Build a streaming inverted index."""
 import argparse
+from collections.abc import Iterator
 import tracemalloc
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from functools import cached_property
+from itertools import islice
 from pathlib import Path
 from time import perf_counter
 
@@ -27,49 +29,50 @@ class DocMeta:
 
 @dataclass
 class Index:
-    postings: dict
-    doc_lengths: dict
-    doc_meta: dict
+    postings: dict[str, list[Posting]]
+    doc_lengths: dict[int, int]
+    doc_meta: dict[int, DocMeta]
 
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.postings)
 
-    def __contains__(self, term):
+    def __contains__(self, term: object) -> bool:
         return term in self.postings
 
-    def __getitem__(self, term):
+    def __getitem__(self, term: str) -> list[Posting]:
         return self.postings[term]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return iter(self.postings)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Index(terms={len(self)}, docs={self.num_docs})"
 
     @property
-    def num_docs(self):
+    def num_docs(self) -> int:
         return len(self.doc_meta)
 
     @cached_property
-    def avg_doc_length(self):
+    def avg_doc_length(self) -> float:
         return sum(self.doc_lengths.values()) / max(1, self.num_docs)
 
-    def doc_length(self, doc_id):
+    def doc_length(self, doc_id: int) -> int:
         return self.doc_lengths[doc_id]
 
-    def df(self, term):
-        return len(self.postings.get(term, ()))
+    def df(self, term: str) -> int:
+        return len(self.postings.get(term, []))
 
 
 @timed
-def build_index(root, positions=False):
-    postings = defaultdict(list)
-    lengths = {}
-    meta = {}
-    for number, doc in enumerate(iter_documents(root)):
-        counts = Counter()
-        offsets = defaultdict(list)
+def build_index(root: Path, positions: bool = False, limit: int | None = None) -> Index:
+    postings: defaultdict[str, list[Posting]] = defaultdict(list)
+    lengths: dict[int, int] = {}
+    meta: dict[int, DocMeta] = {}
+    docs = iter_documents(root)
+    for number, doc in enumerate(islice(docs, limit)):
+        counts: Counter[str] = Counter()
+        offsets: defaultdict[str, list[int]] = defaultdict(list)
         for offset, token in enumerate(tokenize(doc.text)):
             counts[token] += 1
             if positions:
@@ -81,7 +84,7 @@ def build_index(root, positions=False):
     return Index(dict(postings), lengths, meta)
 
 
-def main():
+def main() -> None:
     from findex.store import save
 
     parser = argparse.ArgumentParser(description=__doc__)
