@@ -39,7 +39,7 @@ class Phrase(Node):
             return set()
         maps = [{p.doc_id: set(p.positions) for p in index.postings.get(w, [])}
                 for w in self.words]
-        candidates = set.intersection(*(set(m) for m in maps))
+        candidates = set(maps[0]).intersection(*(set(m) for m in maps[1:]))
         return {d for d in candidates if any(
             all(pos+i in m[d] for i, m in enumerate(maps))
             for pos in maps[0][d])}

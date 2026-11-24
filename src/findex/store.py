@@ -1,7 +1,7 @@
 """Persist indexes in pickle or JSON."""
 import json
 import pickle
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import cast
@@ -47,7 +47,7 @@ def load(path: Path) -> Index:
 
 
 @contextmanager
-def open_index(path: Path) -> Iterator[Index]:
+def open_index(path: Path) -> Generator[Index]:
     # load uses Path methods that close files before returning, even on errors.
     index = load(path)
     try:
